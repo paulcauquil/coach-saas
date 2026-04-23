@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Connexion — Tactix{% endblock %}
+
+{% block extra_style %}
+<style>
+  .auth-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+  }
+  .auth-box { width: 100%; max-width: 400px; }
+  .auth-box h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .auth-box p.subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.6rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-box">
+    <h1>Connexion</h1>
+    <p class="subtitle">Accédez à votre espace club.</p>
+
+    <div class="card">
+      <form method="POST" action="/connexion">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" name="email" placeholder="contact@monclub.fr" required />
+        </div>
+        <div class="form-group">
+          <label>Mot de passe</label>
+          <input type="password" name="mot_de_passe" placeholder="••••••••" required />
+        </div>
+        <button type="submit" class="btn">Se connecter</button>
+      </form>
+    </div>
+
+    <p class="text-center mt-1 text-muted">
+      Pas encore de compte ? <a href="/inscription">S'inscrire</a>
+    </p>
+    <p class="text-center mt-1 text-muted">
+      <a href="/rejoindre">Rejoindre avec un code d'invitation</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

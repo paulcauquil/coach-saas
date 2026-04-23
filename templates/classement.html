@@ -1,0 +1,625 @@
+{% extends "base.html" %}
+{% block title %}Classement — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .page-wrapper { flex:1; padding:2.5rem 2rem; max-width:980px; margin:0 auto; width:100%; }
+
+  /* ── Header ── */
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .page-header-left { display:flex; align-items:center; gap:.75rem; }
+  .page-title { font-size:1.4rem; font-weight:700; letter-spacing:-.02em; }
+  .saison-badge { background:rgba(107,114,128,.12); color:var(--muted); border:1px solid rgba(107,114,128,.25); border-radius:20px; font-size:.75rem; font-weight:600; padding:2px 10px; }
+  .btn-add { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; transition:background .15s,transform .1s; }
+  .btn-add:hover  { background:var(--accent-h); color:#fff; }
+  .btn-add:active { transform:scale(.97); }
+  .btn-reset { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; transition:all .15s; }
+  .btn-reset:hover { border-color:var(--error); color:var(--error); background:rgba(231,76,60,.06); }
+  .btn-recalc { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; transition:all .15s; }
+  .btn-recalc:hover { border-color:#2ECC71; color:#2ECC71; background:rgba(46,204,113,.06); }
+
+  /* ── Points rules badge ── */
+  .pts-rules-bar { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.5rem; }
+  .pts-pill { display:inline-flex; align-items:center; gap:.3rem; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:600; }
+  .pts-pill-w { background:rgba(46,204,113,.12);  color:#2ECC71; border:1px solid rgba(46,204,113,.3); }
+  .pts-pill-d { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+  .pts-pill-l { background:rgba(107,114,128,.1); color:var(--muted); border:1px solid var(--border); }
+  .pts-pill-b { background:rgba(0,85,164,.07);  color:var(--accent); border:1px solid rgba(0,85,164,.15); }
+
+  /* ── Classement table ── */
+  .classement-section { margin-bottom:1.75rem; }
+  .table-wrapper { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:.84rem; min-width:580px; }
+  thead { background:var(--bg); }
+  th { padding:.6rem .9rem; text-align:left; font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); white-space:nowrap; border-bottom:1px solid var(--border); }
+  th.c { text-align:center; }
+  td { padding:.65rem .9rem; border-bottom:1px solid var(--border); white-space:nowrap; }
+  td.c { text-align:center; font-variant-numeric:tabular-nums; }
+  tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:rgba(255,255,255,.025); }
+
+  .rank-cell { display:flex; align-items:center; justify-content:center; }
+  .rank-num  { font-size:.88rem; font-weight:700; color:var(--muted); min-width:20px; text-align:center; }
+  .rank-1 { color:#f59e0b; } .rank-2 { color:#9ca3af; } .rank-3 { color:#cd7f32; }
+
+  .my-club-row td { background:rgba(255,255,255,.07); }
+  .my-club-row:hover td { background:rgba(0,85,164,.08) !important; }
+  .club-name-cell { display:flex; align-items:center; gap:.45rem; }
+  .my-star { color:var(--accent); font-size:.7rem; }
+
+  .pts-cell { font-weight:700; color:var(--accent); font-size:.9rem; }
+  .diff-pos { color:#2ECC71; font-weight:600; }
+  .diff-neg { color:#E74C3C; font-weight:600; }
+  .diff-nut { color:var(--muted); }
+
+  .actions-cell { display:flex; gap:.35rem; justify-content:flex-end; }
+  .btn-icon { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--muted); font-size:.8rem; cursor:pointer; transition:all .15s; }
+  .btn-icon:hover          { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+  .btn-icon.del:hover      { border-color:var(--error);  color:var(--error);  background:rgba(231,76,60,.08); }
+  .empty-state { text-align:center; padding:3.5rem 2rem; color:var(--muted); }
+  .empty-state .empty-icon { font-size:2.5rem; margin-bottom:.75rem; }
+  .empty-state p { font-size:.88rem; margin-bottom:1.25rem; }
+
+  /* ── Résultat form ── */
+  .result-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; margin-bottom:1.75rem; }
+  .section-heading { display:flex; align-items:center; gap:.6rem; margin-bottom:1.25rem; }
+  .section-heading h2 { font-size:1rem; font-weight:700; letter-spacing:-.01em; }
+  .section-heading .badge { font-size:.68rem; font-weight:600; background:rgba(0,85,164,.07); color:var(--accent); border:1px solid rgba(0,85,164,.12); border-radius:20px; padding:2px 8px; }
+  .result-form-grid { display:grid; grid-template-columns:1fr 80px 80px 1fr; gap:.75rem; align-items:end; }
+  .result-sep { display:flex; align-items:flex-end; justify-content:center; padding-bottom:.6rem; font-size:1.1rem; font-weight:700; color:var(--muted); }
+  .btn-submit { padding:.65rem 1.25rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; transition:background .15s; white-space:nowrap; }
+  .btn-submit:hover { background:var(--accent-h); }
+  .result-form-row2 { display:flex; align-items:flex-end; gap:.75rem; margin-top:.75rem; flex-wrap:wrap; }
+  .bonus-group { display:flex; flex-direction:column; gap:.4rem; flex:1; min-width:180px; }
+  .bonus-label { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .bonus-checks { display:flex; flex-wrap:wrap; gap:.5rem; }
+  .check-pill { display:flex; align-items:center; gap:.35rem; padding:.38rem .7rem; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; font-size:.76rem; color:var(--muted); transition:all .15s; user-select:none; }
+  .check-pill input { display:none; }
+  .check-pill.checked { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+
+  /* ── Historique résultats ── */
+  .history-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .history-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
+  .history-header h2 { font-size:.88rem; font-weight:700; }
+  .history-list { display:flex; flex-direction:column; }
+  .history-row { display:flex; align-items:center; gap:.75rem; padding:.65rem 1.25rem; border-bottom:1px solid var(--border); font-size:.84rem; }
+  .history-row:last-child { border-bottom:none; }
+  .history-row:hover { background:rgba(255,255,255,.02); }
+  .h-team { flex:1; font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .h-team.right { text-align:right; }
+  .h-score { display:flex; align-items:center; gap:.35rem; font-size:.9rem; font-weight:700; letter-spacing:.03em; white-space:nowrap; }
+  .h-score .sep { color:var(--muted); font-weight:400; font-size:.75rem; }
+  .h-bonus { font-size:.68rem; color:var(--accent); font-weight:600; background:rgba(0,85,164,.07); border-radius:4px; padding:1px 5px; white-space:nowrap; }
+  .h-source { font-size:.65rem; padding:2px 7px; border-radius:4px; font-weight:600; white-space:nowrap; }
+  .src-matchs { background:rgba(46,204,113,.1); color:#2ECC71; border:1px solid rgba(46,204,113,.25); }
+  .src-manuel { background:rgba(107,114,128,.1); color:var(--muted); border:1px solid var(--border); }
+  .h-del form { margin:0; }
+  .history-empty { padding:1.5rem; text-align:center; color:var(--muted); font-size:.84rem; }
+
+  /* ── Filtre pills ── */
+  .filter-pill { padding:.3rem .75rem; border:1px solid var(--border); border-radius:20px; background:transparent; color:var(--muted); font-size:.73rem; font-weight:600; cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .filter-pill:hover  { border-color:var(--accent); color:var(--accent); }
+  .filter-pill.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+  /* ── Modals ── */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:100; align-items:center; justify-content:center; padding:1rem; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:2rem; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; }
+  .modal h3 { font-size:1.1rem; font-weight:700; margin-bottom:1.4rem; }
+  .modal-footer { display:flex; gap:.6rem; margin-top:1.4rem; }
+  .btn-cancel { padding:.65rem 1rem; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:var(--radius); font-size:.9rem; cursor:pointer; }
+  .btn-cancel:hover { border-color:var(--muted); }
+  .btn-submit-m { flex:1; padding:.65rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.9rem; font-weight:600; cursor:pointer; }
+  .btn-submit-m:hover { background:var(--accent-h); }
+
+  @media (max-width:640px) {
+    .result-form-grid { grid-template-columns:1fr 60px 60px 1fr; }
+    .result-form-row2 { flex-direction:column; }
+  }
+  @media (max-width:480px) {
+    .result-form-grid { grid-template-columns:1fr 1fr; }
+    .result-sep { display:none; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set sport_icons = {'Football':'⚽','Rugby':'🏉','Basket':'🏀','Handball':'🤾','Volley-ball':'🏐','Hockey sur glace':'🏒','Football américain':'🏈','Water-polo':'🤽'} %}
+{% set score_lbl   = {'Football':'Buts','Rugby':'Points','Basket':'Points','Handball':'Buts','Volley-ball':'Sets','Hockey sur glace':'Buts','Football américain':'Points','Water-polo':'Buts'} %}
+{% set s_lbl = score_lbl.get(sport, 'Buts') %}
+
+<div class="page-wrapper">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">🏆 Classement</h1>
+      <span class="saison-badge">{{ sport_icons.get(sport,'⚽') }} {{ sport }} · Saison {{ saison }}</span>
+    </div>
+    {% if user_role != 'joueur' %}
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+      <button class="btn-add" onclick="openModal('modal-ajouter')">+ Ajouter une équipe</button>
+      <form method="POST" action="/classement/recalculer" style="margin:0;">
+        <button type="submit" class="btn-recalc" title="Resynchroniser depuis la table Matchs">↻ Recalculer</button>
+      </form>
+      <button class="btn-reset" onclick="openModal('modal-reset')" title="Réinitialiser le classement">Réinitialiser</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Règles de points -->
+  <div class="pts-rules-bar">
+    <span class="pts-pill pts-pill-w">Victoire = {{ pts_rules.w }} pts</span>
+    {% if pts_rules.d > 0 %}
+    <span class="pts-pill pts-pill-d">Nul = {{ pts_rules.d }} pt{{ 's' if pts_rules.d > 1 }}</span>
+    {% endif %}
+    <span class="pts-pill pts-pill-l">Défaite = {{ pts_rules.l }} pt</span>
+    {% if pts_rules.rugby_bonus %}
+    <span class="pts-pill pts-pill-b">Bonus offensif — 3 essais de plus que l'adversaire = +1 pt</span>
+    <span class="pts-pill pts-pill-b">Bonus défensif — défaite de moins de 5 points = +1 pt</span>
+    {% endif %}
+  </div>
+
+  <!-- Tableau de classement -->
+  <div class="classement-section">
+    {% if equipes %}
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th class="c">#</th>
+            <th>Équipe</th>
+            <th class="c" title="Matchs joués">MJ</th>
+            <th class="c" title="Victoires">V</th>
+            {% if pts_rules.d > 0 %}<th class="c" title="Nuls">N</th>{% endif %}
+            <th class="c" title="Défaites">D</th>
+            <th class="c" title="{{ s_lbl }} marqués">+</th>
+            <th class="c" title="{{ s_lbl }} encaissés">–</th>
+            <th class="c" title="Différence">Diff</th>
+            <th class="c" title="Points au classement">Pts</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for eq in equipes %}
+          {% set diff = (eq.points_marques or 0) - (eq.points_encaisses or 0) %}
+          {% set is_mine = (eq.nom_equipe | lower) == (nom_club | lower) %}
+          <tr class="{{ 'my-club-row' if is_mine }}">
+            <td class="c">
+              <div class="rank-cell">
+                <span class="rank-num {{ 'rank-1' if loop.index==1 else ('rank-2' if loop.index==2 else ('rank-3' if loop.index==3 else '')) }}">
+                  {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+                </span>
+              </div>
+            </td>
+            <td>
+              <div class="club-name-cell">
+                <span>{{ eq.nom_equipe }}</span>
+                {% if is_mine %}<span class="my-star" title="Mon équipe">★</span>{% endif %}
+              </div>
+            </td>
+            <td class="c">{{ eq.matchs_joues or 0 }}</td>
+            <td class="c">{{ eq.victoires or 0 }}</td>
+            {% if pts_rules.d > 0 %}<td class="c">{{ eq.nuls or 0 }}</td>{% endif %}
+            <td class="c">{{ eq.defaites or 0 }}</td>
+            <td class="c">{{ eq.points_marques or 0 }}</td>
+            <td class="c">{{ eq.points_encaisses or 0 }}</td>
+            <td class="c {{ 'diff-pos' if diff > 0 else ('diff-neg' if diff < 0 else 'diff-nut') }}">
+              {{ '+' if diff > 0 else '' }}{{ diff }}
+            </td>
+            <td class="c pts-cell">{{ eq.points_classement or 0 }}</td>
+            <td>
+              {% if user_role != 'joueur' %}
+              <div class="actions-cell">
+                <button class="btn-icon" title="Renommer"
+                  onclick='openRename({{ {"id":eq.id|string,"nom":eq.nom_equipe} | tojson }})'>✏️</button>
+                <form method="POST" action="/classement/supprimer/{{ eq.id }}" style="margin:0;"
+                      onsubmit="return confirm('Supprimer {{ eq.nom_equipe }} et tous ses résultats ?')">
+                  <button type="submit" class="btn-icon del" title="Supprimer">🗑</button>
+                </form>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>Aucune équipe dans le classement.<br>Ajoutez les équipes de votre poule ou division.</p>
+      {% if user_role != 'joueur' %}
+      <button class="btn-add" onclick="openModal('modal-ajouter')">+ Ajouter la première équipe</button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if equipes | length >= 2 and user_role != 'joueur' %}
+  <!-- Formulaire saisie résultat -->
+  <div class="result-section">
+    <div class="section-heading">
+      <h2>Saisir un résultat</h2>
+      <span class="badge">Mise à jour automatique du classement</span>
+    </div>
+    <form method="POST" action="/classement/resultat/ajouter" id="form-resultat">
+      <input type="hidden" name="saison" value="{{ saison }}">
+      {% if pts_rules.rugby_bonus %}
+      <input type="hidden" name="bonus_dom" id="bonus_dom" value="0">
+      <input type="hidden" name="bonus_ext" id="bonus_ext" value="0">
+      {% else %}
+      <input type="hidden" name="bonus_dom" value="0">
+      <input type="hidden" name="bonus_ext" value="0">
+      {% endif %}
+
+      <div class="result-form-grid">
+        <div class="form-group" style="margin:0">
+          <label>Équipe domicile</label>
+          <select name="equipe_dom_id" id="sel-dom" required onchange="checkSameTeam()">
+            <option value="">— Sélectionner —</option>
+            {% for eq in equipes %}
+            <option value="{{ eq.id }}">{{ eq.nom_equipe }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Score dom.</label>
+          <input type="number" name="score_dom" min="0" value="0" required style="text-align:center;">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Score ext.</label>
+          <input type="number" name="score_ext" min="0" value="0" required style="text-align:center;">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Équipe extérieur</label>
+          <select name="equipe_ext_id" id="sel-ext" required onchange="checkSameTeam()">
+            <option value="">— Sélectionner —</option>
+            {% for eq in equipes %}
+            <option value="{{ eq.id }}">{{ eq.nom_equipe }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      {% if pts_rules.rugby_bonus %}
+      <!-- Bonus rugby — div sans checkbox pour éviter le double-fire -->
+      <div class="result-form-row2">
+        <div class="bonus-group">
+          <span class="bonus-label">Bonus équipe domicile</span>
+          <div class="bonus-checks">
+            <div class="check-pill" id="bdo-off" onclick="toggleBonus('dom','off',this)">
+              Bonus offensif — 3 essais de + (+1 pt)
+            </div>
+            <div class="check-pill" id="bdo-def" onclick="toggleBonus('dom','def',this)">
+              Bonus défensif — défaite &lt; 5 pts (+1 pt)
+            </div>
+          </div>
+        </div>
+        <div class="bonus-group">
+          <span class="bonus-label">Bonus équipe extérieur</span>
+          <div class="bonus-checks">
+            <div class="check-pill" id="bex-off" onclick="toggleBonus('ext','off',this)">
+              Bonus offensif — 3 essais de + (+1 pt)
+            </div>
+            <div class="check-pill" id="bex-def" onclick="toggleBonus('ext','def',this)">
+              Bonus défensif — défaite &lt; 5 pts (+1 pt)
+            </div>
+          </div>
+        </div>
+        <div style="align-self:flex-end;">
+          <button type="submit" class="btn-submit" id="btn-submit-res">Enregistrer →</button>
+        </div>
+      </div>
+      {% else %}
+      <div style="margin-top:.75rem;">
+        <button type="submit" class="btn-submit" id="btn-submit-res">Enregistrer →</button>
+      </div>
+      {% endif %}
+
+      <p id="same-team-warn" style="display:none;color:var(--error);font-size:.8rem;margin-top:.5rem;">
+        ⚠️ Les deux équipes doivent être différentes.
+      </p>
+    </form>
+  </div>
+  {% elif equipes | length < 2 and user_role != 'joueur' %}
+  <div class="result-section" style="text-align:center;color:var(--muted);padding:1.5rem;">
+    <p style="font-size:.88rem;">Ajoutez au moins 2 équipes pour pouvoir saisir un résultat.</p>
+  </div>
+  {% endif %}
+
+  <!-- Historique des résultats -->
+  <div class="history-section">
+    <div class="history-header">
+      <h2>Résultats récents</h2>
+      <span style="font-size:.75rem;color:var(--muted);" id="hist-count">{{ resultats|length }} résultat{{ 's' if resultats|length != 1 }}</span>
+    </div>
+    {% if resultats %}
+    <!-- Filtre équipe -->
+    <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+      <span style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Filtrer :</span>
+      <div style="display:flex;flex-wrap:wrap;gap:.4rem;" id="filter-pills">
+        <button class="filter-pill active" data-team="">Tous</button>
+        {% set seen = namespace(teams=[]) %}
+        {% for r in resultats %}
+          {% if r.nom_dom not in seen.teams and r.nom_dom != '?' %}
+            {% set _ = seen.teams.append(r.nom_dom) %}
+            <button class="filter-pill" data-team="{{ r.nom_dom }}">{{ r.nom_dom }}</button>
+          {% endif %}
+          {% if r.nom_ext not in seen.teams and r.nom_ext != '?' %}
+            {% set _ = seen.teams.append(r.nom_ext) %}
+            <button class="filter-pill" data-team="{{ r.nom_ext }}">{{ r.nom_ext }}</button>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if resultats %}
+    <div class="history-list" id="history-list">
+      {% for r in resultats %}
+      {% set sd = r.score_dom %} {% set se = r.score_ext %}
+      <div class="history-row" data-dom="{{ r.nom_dom }}" data-ext="{{ r.nom_ext }}">
+        <span class="h-team">{{ r.nom_dom }}</span>
+        <div class="h-score">
+          {% if sd > se %}
+            <strong style="color:#2ECC71">{{ sd }}</strong>
+          {% elif sd == se %}
+            <strong style="color:#f59e0b">{{ sd }}</strong>
+          {% else %}
+            <strong>{{ sd }}</strong>
+          {% endif %}
+          <span class="sep">–</span>
+          {% if se > sd %}
+            <strong style="color:#2ECC71">{{ se }}</strong>
+          {% elif se == sd %}
+            <strong style="color:#f59e0b">{{ se }}</strong>
+          {% else %}
+            <strong>{{ se }}</strong>
+          {% endif %}
+        </div>
+        <span class="h-team right">{{ r.nom_ext }}</span>
+        {% set bd = r.bonus_dom or 0 %} {% set be = r.bonus_ext or 0 %}
+        {% if bd > 0 %}<span class="h-bonus">+{{ bd }} dom</span>{% endif %}
+        {% if be > 0 %}<span class="h-bonus">+{{ be }} ext</span>{% endif %}
+        <span class="h-source {{ 'src-matchs' if r.source == 'matchs' else 'src-manuel' }}">
+          {{ 'Import match' if r.source == 'matchs' else 'Saisi' }}
+        </span>
+        <div class="h-del">
+          {% if r.source != 'matchs' and user_role != 'joueur' %}
+          <form method="POST" action="/classement/resultat/supprimer/{{ r.id }}" style="margin:0;"
+                onsubmit="return confirm('Supprimer ce résultat ?')">
+            <button type="submit" class="btn-icon del" title="Supprimer">🗑</button>
+          </form>
+          {% elif r.source == 'matchs' %}
+          <span style="font-size:.72rem;color:var(--muted);" title="Géré depuis la page Matchs">🔒</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <!-- Voir plus résultats -->
+    <div id="hist-voir-plus-wrap" style="display:none;text-align:center;padding:.8rem;border-top:1px solid var(--border);">
+      <button id="btn-hist-voir-plus" onclick="histShowMore()"
+        style="padding:.5rem 1.3rem;background:transparent;border:1px solid var(--border);
+               border-radius:var(--radius);color:var(--muted);font-size:.82rem;font-weight:600;
+               cursor:pointer;transition:all .15s;"
+        onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+        onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+        Voir plus
+      </button>
+    </div>
+    {% else %}
+    <div class="history-empty">Aucun résultat enregistré pour cette saison.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+
+<!-- ══════ MODAL Ajouter équipe ══════ -->
+<div id="modal-ajouter" class="modal-overlay" onclick="closeOnBackdrop(event,'modal-ajouter')">
+  <div class="modal">
+    <h3>Ajouter une équipe</h3>
+    <form method="POST" action="/classement/ajouter">
+      <input type="hidden" name="saison" value="{{ saison }}">
+      <div class="form-group">
+        <label>Nom de l'équipe *</label>
+        <input type="text" name="nom_equipe" placeholder="ex : RC Toulon" required autofocus>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-ajouter')">Annuler</button>
+        <button type="submit" class="btn-submit-m">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════ MODAL Renommer équipe ══════ -->
+<div id="modal-rename" class="modal-overlay" onclick="closeOnBackdrop(event,'modal-rename')">
+  <div class="modal">
+    <h3>Renommer l'équipe</h3>
+    <form method="POST" id="form-rename">
+      <div class="form-group">
+        <label>Nom de l'équipe *</label>
+        <input type="text" name="nom_equipe" id="rename-nom" required autofocus>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-rename')">Annuler</button>
+        <button type="submit" class="btn-submit-m">Renommer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════ MODAL Réinitialiser ══════ -->
+<div id="modal-reset" class="modal-overlay" onclick="closeOnBackdrop(event,'modal-reset')">
+  <div class="modal">
+    <h3 style="color:var(--error);">Réinitialiser le classement</h3>
+    <p style="font-size:.875rem;color:var(--muted);margin-bottom:1rem;line-height:1.5;">
+      Cette action supprime <strong style="color:var(--text);">tous les résultats saisis manuellement</strong>
+      et remet les stats de toutes les équipes à zéro.<br><br>
+      Les équipes restent dans la liste, et les matchs de la page
+      <strong style="color:var(--text);">/matchs</strong> ne sont pas supprimés — notre équipe sera
+      recalculée automatiquement.
+    </p>
+    <p style="font-size:.8rem;color:var(--error);font-weight:600;margin-bottom:1.25rem;">
+      Cette action est irréversible.
+    </p>
+    <form method="POST" action="/classement/reinitialiser">
+      <input type="hidden" name="saison" value="{{ saison }}">
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-reset')">Annuler</button>
+        <button type="submit" class="btn-submit-m"
+                style="background:var(--error);"
+                onmouseover="this.style.background='#c0392b'"
+                onmouseout="this.style.background='var(--error)'">
+          Oui, tout réinitialiser
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<script>
+const RUGBY_BONUS = {{ pts_rules.rugby_bonus | tojson }};
+// bonusDom/bonusExt : somme des bonus cochés (0, 1 ou 2)
+let bonusDom = 0, bonusExt = 0;
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeOnBackdrop(e, id) { if (e.target.id === id) closeModal(id); }
+
+function sv(id, val) { const el = document.getElementById(id); if (el) el.value = val ?? ''; }
+
+function openRename(eq) {
+  document.getElementById('form-rename').action = '/classement/renommer/' + eq.id;
+  document.getElementById('rename-nom').value = eq.nom;
+  openModal('modal-rename');
+}
+
+/* Validation même équipe */
+function checkSameTeam() {
+  const dom = document.getElementById('sel-dom')?.value;
+  const ext = document.getElementById('sel-ext')?.value;
+  const warn = document.getElementById('same-team-warn');
+  const btn  = document.getElementById('btn-submit-res');
+  const same = dom && ext && dom === ext;
+  if (warn) warn.style.display = same ? '' : 'none';
+  if (btn)  btn.disabled = same;
+  if (RUGBY_BONUS) autoDetectBonusDef();
+}
+
+/* Auto-détection bonus défensif (défaite < 5 points) */
+function autoDetectBonusDef() {
+  const sd = parseInt(document.querySelector('[name="score_dom"]')?.value) || 0;
+  const se = parseInt(document.querySelector('[name="score_ext"]')?.value) || 0;
+  const diff = Math.abs(sd - se);
+  const isDomLoser = sd < se;
+  const isExtLoser = se < sd;
+
+  setPill('bdo-def', isDomLoser && diff < 5);
+  setPill('bex-def', isExtLoser && diff < 5);
+  recalcBonus();
+}
+
+function setPill(id, active) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('checked', active);
+}
+
+function recalcBonus() {
+  bonusDom = (document.getElementById('bdo-off')?.classList.contains('checked') ? 1 : 0)
+           + (document.getElementById('bdo-def')?.classList.contains('checked') ? 1 : 0);
+  bonusExt = (document.getElementById('bex-off')?.classList.contains('checked') ? 1 : 0)
+           + (document.getElementById('bex-def')?.classList.contains('checked') ? 1 : 0);
+  const bd = document.getElementById('bonus_dom');
+  const be = document.getElementById('bonus_ext');
+  if (bd) bd.value = bonusDom;
+  if (be) be.value = bonusExt;
+}
+
+/* Clic manuel sur une case bonus */
+function toggleBonus(side, type, el) {
+  // Ne pas laisser le clic sur le bonus défensif si auto-calculé — laisser quand même le toggle manuel
+  el.classList.toggle('checked');
+  recalcBonus();
+}
+
+/* Écouter les changements de score pour recalculer le bonus défensif */
+if (RUGBY_BONUS) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const sdom = document.querySelector('[name="score_dom"]');
+    const sext = document.querySelector('[name="score_ext"]');
+    if (sdom) sdom.addEventListener('input', autoDetectBonusDef);
+    if (sext) sext.addEventListener('input', autoDetectBonusDef);
+  });
+}
+
+/* ── Filtre équipe ── */
+let activeTeam = '';
+
+document.querySelectorAll('.filter-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    activeTeam = pill.dataset.team;
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    histShown = HIST_PAGE;
+    applyHistFilter();
+  });
+});
+
+function applyHistFilter() {
+  const rows = Array.from(document.querySelectorAll('#history-list .history-row'));
+  const wrap = document.getElementById('hist-voir-plus-wrap');
+  const btn  = document.getElementById('btn-hist-voir-plus');
+  const countEl = document.getElementById('hist-count');
+
+  const filtered = activeTeam
+    ? rows.filter(r => r.dataset.dom === activeTeam || r.dataset.ext === activeTeam)
+    : rows;
+
+  // Masquer toutes les lignes, puis afficher celles du filtre par tranches
+  rows.forEach(r => r.style.display = 'none');
+  filtered.forEach((row, i) => {
+    row.style.display = i < histShown ? '' : 'none';
+  });
+
+  const remaining = filtered.length - histShown;
+  if (remaining > 0) {
+    btn.textContent = `Voir plus (${remaining} résultat${remaining > 1 ? 's' : ''})`;
+    wrap.style.display = '';
+  } else {
+    wrap.style.display = 'none';
+  }
+
+  if (countEl) {
+    const n = filtered.length;
+    countEl.textContent = `${n} résultat${n > 1 ? 's' : ''}`;
+  }
+}
+
+/* ── Pagination historique résultats ── */
+const HIST_PAGE = 8;
+let histShown   = HIST_PAGE;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!document.getElementById('history-list')) return;
+  applyHistFilter();
+  window.histShowMore = function() {
+    histShown += HIST_PAGE;
+    applyHistFilter();
+  };
+});
+</script>
+{% endblock %}

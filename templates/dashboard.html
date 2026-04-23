@@ -1,0 +1,560 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord — Tactix{% endblock %}
+{% block page_title %}Tableau de bord{% endblock %}
+
+{% block extra_style %}
+<style>
+  .dash {
+    padding: 1.75rem 1.75rem 3rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ── KPI row ── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .75rem;
+    margin-bottom: 1.75rem;
+  }
+  .kpi {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-left: 3px solid #0055A4;
+    border-radius: 10px;
+    padding: 1.1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    transition: box-shadow .12s;
+  }
+  .kpi:hover { box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+  .kpi.kpi-orange { border-left-color: #E8752A; }
+  .kpi-n {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -.05em;
+    line-height: 1;
+    color: #111118;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-l {
+    font-size: .6rem;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: #6B7280;
+    font-weight: 600;
+  }
+  .kpi-sub {
+    font-size: .72rem;
+    color: #6B7280;
+    margin-top: .1rem;
+  }
+  .c-blue   { color: #0055A4; }
+  .c-green  { color: var(--success); }
+  .c-yellow { color: var(--warning); }
+  .c-red    { color: var(--error); }
+  .c-orange { color: #E8752A; font-weight: 600; }
+  .c-purple { color: #A78BFA; }
+
+  /* ── Two-col layout ── */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr minmax(300px, 380px);
+    grid-auto-rows: 1fr;
+    gap: 1.25rem;
+    width: 100%;
+  }
+  .dash-col {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 1.25rem;
+    min-height: 0;
+  }
+  .dash-col-right {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 1.25rem;
+    min-height: 0;
+  }
+
+  /* ── Section ── */
+  .section-hd {
+    font-size: .58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #9CA3AF;
+    padding: .65rem 1rem;
+    border-bottom: 1px solid #E5E7EB;
+    background: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-hd a {
+    font-size: .68rem;
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .section-hd a:hover { color: var(--accent-h); }
+
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  /* ── Derniers matchs ── */
+  .match-row {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .65rem 1rem;
+    background: #FFFFFF;
+    border-bottom: 1px solid #E5E7EB;
+    font-size: .82rem;
+    color: #374151;
+    transition: background .1s;
+  }
+  .match-row:last-child { border-bottom: none; }
+  .match-row:hover { background: #F4F5F7; }
+  .match-date {
+    font-size: .68rem;
+    color: var(--muted);
+    width: 50px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .match-teams {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    min-width: 0;
+  }
+  .match-team {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .match-sep { color: var(--muted); flex-shrink: 0; font-size: .72rem; }
+  .match-score {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: .88rem;
+    width: 52px;
+    text-align: center;
+    background: #F4F5F7;
+    border: 1px solid #E5E7EB;
+    border-radius: 3px;
+    padding: 2px 5px;
+    flex-shrink: 0;
+    letter-spacing: .02em;
+    color: #111118;
+  }
+  .result-pill {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .62rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .rp-v { background: rgba(46,204,113,.15); color: var(--success); }
+  .rp-n { background: rgba(240,173,0,.15);  color: var(--warning); }
+  .rp-d { background: rgba(231,76,60,.15);  color: var(--error); }
+
+  .empty-row {
+    padding: 1.1rem 1rem;
+    font-size: .82rem;
+    color: #9CA3AF;
+    background: #FFFFFF;
+    text-align: center;
+  }
+  .empty-row a { color: #0055A4; font-weight: 600; }
+
+  /* ── Mini classement ── */
+  .clt-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .clt-table th {
+    font-size: .58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+    color: #9CA3AF;
+    padding: .5rem 1rem;
+    text-align: left;
+    background: #FFFFFF;
+    border-bottom: 1px solid #E5E7EB;
+  }
+  .clt-table th:not(:first-child) { text-align: center; }
+  .clt-table td {
+    padding: .6rem 1rem;
+    font-size: .82rem;
+    color: #374151;
+    border-bottom: 1px solid #E5E7EB;
+    background: #FFFFFF;
+    transition: background .1s;
+  }
+  .clt-table tr:last-child td { border-bottom: none; }
+  .clt-table tr:hover td { background: #F4F5F7; }
+  .clt-table td:not(:first-child):not(:nth-child(2)) {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    color: #6B7280;
+  }
+  .clt-pos { font-weight: 600; color: #9CA3AF; width: 28px; }
+  .clt-team { font-weight: 500; color: #374151; }
+  .clt-pts  { font-weight: 700; color: #111118 !important; }
+  .clt-nous td {
+    background: rgba(0,85,164,.06) !important;
+    border-left: 3px solid #0055A4;
+  }
+  .clt-nous td:first-child { padding-left: calc(1rem - 3px); }
+  .clt-nous .clt-team { font-weight: 700; color: #111118; }
+  .clt-footer {
+    padding: .6rem 1rem;
+    font-size: .75rem;
+    background: #FFFFFF;
+    border-top: 1px solid #E5E7EB;
+    text-align: right;
+  }
+  .clt-footer a { color: #0055A4; font-weight: 600; }
+  .clt-footer a:hover { text-decoration: underline; }
+
+  /* ── Stats season mini ── */
+  .stat-mini-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .6rem 1rem;
+    background: #FFFFFF;
+    border-bottom: 1px solid #E5E7EB;
+    font-size: .82rem;
+    transition: background .1s;
+  }
+  .stat-mini-row:last-child { border-bottom: none; }
+  .stat-mini-lbl { color: #6B7280; }
+  .stat-mini-val { font-weight: 700; font-variant-numeric: tabular-nums; color: #374151; }
+
+  /* ── Meilleurs marqueurs ── */
+  .marqueur-row {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .65rem 1rem;
+    background: #FFFFFF;
+    border-bottom: 1px solid #E5E7EB;
+    transition: background .1s;
+  }
+  .marqueur-row:last-child { border-bottom: none; }
+  .marqueur-row:hover { background: #F4F5F7; }
+  .marqueur-medal {
+    font-size: .95rem;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .marqueur-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #0055A4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .6rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+    letter-spacing: .02em;
+  }
+  .marqueur-nom {
+    flex: 1;
+    font-size: .82rem;
+    font-weight: 500;
+    color: #374151;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .marqueur-stat {
+    font-size: .82rem;
+    font-weight: 700;
+    color: #E8752A;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── Plan info ── */
+  .plan-row-ui {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .75rem 1rem;
+    background: #FFFFFF;
+  }
+  .plan-name {
+    font-size: .78rem;
+    font-weight: 600;
+    color: #111118;
+  }
+  .plan-tag {
+    font-size: .6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+  .plan-tag-free { background: #EBEBF0; color: #9CA3AF; border: 1px solid #D1D5DB; }
+  .plan-tag-pro  { background: rgba(0,85,164,.07); color: #0055A4; border: 1px solid rgba(0,85,164,.18); }
+  .btn-upgrade-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .35rem .75rem;
+    background: #0055A4;
+    color: #fff;
+    border-radius: 6px;
+    font-size: .75rem;
+    font-weight: 600;
+    transition: background .15s;
+  }
+  .btn-upgrade-sm:hover { background: #0066C4; color: #fff; }
+
+  @media (max-width: 800px) {
+    .dash-grid { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .dash { padding: 1rem 1rem 2rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash">
+
+  <!-- KPI -->
+  <div class="kpi-row">
+    <a href="/effectif" class="kpi">
+      <span class="kpi-n">{{ nb_joueurs }}</span>
+      <span class="kpi-l">Joueurs</span>
+    </a>
+    <a href="/matchs" class="kpi">
+      <span class="kpi-n">{{ stats.total }}</span>
+      <span class="kpi-l">Matchs joués</span>
+      {% if stats.total > 0 %}
+      <span class="kpi-sub">{{ stats.victoires }}V · {{ stats.nuls }}N · {{ stats.defaites }}D</span>
+      {% endif %}
+    </a>
+    <a href="/classement" class="kpi">
+      {% if position_classement %}
+        <span class="kpi-n">{{ position_classement }}<sup style="font-size:.9rem;font-weight:600;">e</sup></span>
+      {% else %}
+        <span class="kpi-n" style="color:var(--muted);">—</span>
+      {% endif %}
+      <span class="kpi-l">Position</span>
+    </a>
+    <a href="/matchs" class="kpi kpi-orange">
+      {% if prochain_match %}
+        <span class="kpi-n" style="font-size:1.1rem;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ prochain_match.adversaire }}</span>
+        <span class="kpi-l">Prochain adversaire</span>
+        <span class="kpi-sub">
+          {% if prochain_match.date_match %}{{ prochain_match.date_match[8:10] }}/{{ prochain_match.date_match[5:7] }}{% endif %}
+          · {% if prochain_match.domicile %}Domicile{% else %}Extérieur{% endif %}
+        </span>
+      {% else %}
+        <span class="kpi-n" style="color:var(--muted);">—</span>
+        <span class="kpi-l">Prochain adversaire</span>
+      {% endif %}
+    </a>
+  </div>
+
+  <div class="dash-grid">
+
+    <!-- Colonne principale -->
+    <div class="dash-col">
+
+      <!-- Derniers matchs -->
+      <div class="panel">
+        <div class="section-hd">
+          Derniers matchs
+          <a href="/matchs">Voir tout →</a>
+        </div>
+        {% if recent_matchs %}
+          {% for m in recent_matchs %}
+          {% set sn = m.score_nous %}
+          {% set se = m.score_eux %}
+          <div class="match-row">
+            <span class="match-date">
+              {% if m.date_match %}{{ m.date_match[8:10] }}/{{ m.date_match[5:7] }}{% endif %}
+            </span>
+            <div class="match-teams">
+              {% if m.domicile %}
+                <span class="match-team">{{ session.get('nom_club') }}</span>
+                <span class="match-sep">—</span>
+                <span class="match-team" style="color:var(--text-2);">{{ m.adversaire }}</span>
+              {% else %}
+                <span class="match-team" style="color:var(--text-2);">{{ m.adversaire }}</span>
+                <span class="match-sep">—</span>
+                <span class="match-team">{{ session.get('nom_club') }}</span>
+              {% endif %}
+            </div>
+            {% if sn is not none and se is not none %}
+              <span class="match-score">{{ sn }} – {{ se }}</span>
+              {% if m.result == 'V' %}
+                <span class="result-pill rp-v">V</span>
+              {% elif m.result == 'N' %}
+                <span class="result-pill rp-n">N</span>
+              {% else %}
+                <span class="result-pill rp-d">D</span>
+              {% endif %}
+            {% else %}
+              <span class="match-score" style="color:var(--muted);">– –</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-row">
+            Aucun match enregistré. <a href="/matchs">Ajouter →</a>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Mini classement -->
+      <div class="panel">
+        <div class="section-hd">
+          Classement
+          <a href="/classement">Voir le classement complet →</a>
+        </div>
+        {% if mini_classement %}
+        <table class="clt-table">
+          <thead>
+            <tr>
+              <th style="width:28px;">#</th>
+              <th>Équipe</th>
+              <th>MJ</th>
+              <th>V</th>
+              <th>Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in mini_classement %}
+            <tr class="{% if e.is_nous %}clt-nous{% endif %}">
+              <td class="clt-pos">{{ e.position }}</td>
+              <td class="clt-team">{{ e.nom_equipe }}</td>
+              <td>{{ e.matchs_joues or 0 }}</td>
+              <td>{{ e.victoires or 0 }}</td>
+              <td class="clt-pts">{{ e.points_classement or 0 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="clt-footer">
+          <a href="/classement">Voir le classement complet →</a>
+        </div>
+        {% else %}
+          <div class="empty-row">
+            Aucune équipe dans le classement. <a href="/classement">Configurer →</a>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Colonne droite -->
+    <div class="dash-col-right">
+
+      <!-- Stats saison -->
+      <div class="panel">
+        <div class="section-hd">Statistiques saison</div>
+        {% if stats.total > 0 %}
+        <div class="stat-mini-row">
+          <span class="stat-mini-lbl">Victoires</span>
+          <span class="stat-mini-val c-green">{{ stats.victoires }}</span>
+        </div>
+        <div class="stat-mini-row">
+          <span class="stat-mini-lbl">Nuls</span>
+          <span class="stat-mini-val c-yellow">{{ stats.nuls }}</span>
+        </div>
+        <div class="stat-mini-row">
+          <span class="stat-mini-lbl">Défaites</span>
+          <span class="stat-mini-val c-red">{{ stats.defaites }}</span>
+        </div>
+        <div class="stat-mini-row">
+          <span class="stat-mini-lbl">{{ vocab.score_label }} marqués</span>
+          <span class="stat-mini-val c-orange">{{ stats.buts_marques }}</span>
+        </div>
+        <div class="stat-mini-row">
+          <span class="stat-mini-lbl">{{ vocab.score_label }} encaissés</span>
+          <span class="stat-mini-val" style="color:#A78BFA;">{{ stats.buts_encaisses }}</span>
+        </div>
+        {% if stats.total > 0 %}
+        <div class="stat-mini-row">
+          <span class="stat-mini-lbl">Différence</span>
+          {% set diff = stats.buts_marques - stats.buts_encaisses %}
+          <span class="stat-mini-val {% if diff > 0 %}c-green{% elif diff < 0 %}c-red{% endif %}">
+            {% if diff > 0 %}+{% endif %}{{ diff }}
+          </span>
+        </div>
+        {% endif %}
+        {% else %}
+          <div class="empty-row">Aucun match enregistré.</div>
+        {% endif %}
+      </div>
+
+      <!-- Meilleurs marqueurs -->
+      <div class="panel">
+        <div class="section-hd">Meilleurs marqueurs</div>
+        {% if top_marqueurs %}
+          {% set medals = ['🥇','🥈','🥉'] %}
+          {% for m in top_marqueurs %}
+          <div class="marqueur-row">
+            <span class="marqueur-medal">{{ medals[loop.index0] }}</span>
+            <div class="marqueur-avatar">{{ m.initiales }}</div>
+            <span class="marqueur-nom">{{ m.nom }}</span>
+            <span class="marqueur-stat">{{ m.nb }} {{ m.label }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-row">Aucune stat enregistrée pour cette saison.</div>
+        {% endif %}
+      </div>
+
+      <!-- Plan -->
+      <div class="panel">
+        <div class="section-hd">Abonnement</div>
+        <div class="plan-row-ui">
+          <div>
+            <div class="plan-name">Plan {% if plan == 'pro' %}Pro{% else %}Gratuit{% endif %}</div>
+            {% if sport %}<div style="font-size:.7rem;color:var(--muted);margin-top:.15rem;">{{ sport }}</div>{% endif %}
+          </div>
+          {% if plan == 'pro' %}
+            <span class="plan-tag plan-tag-pro">Actif</span>
+          {% else %}
+            <a href="/tarifs" class="btn-upgrade-sm">Passer Pro</a>
+          {% endif %}
+        </div>
+        {% if plan != 'pro' %}
+        <div style="padding:.6rem 1rem;background:#F4F5F7;font-size:.73rem;color:#9CA3AF;border-top:1px solid #E5E7EB;">
+          Composition tactique, exports PNG et matchs illimités — 29 €/mois.
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

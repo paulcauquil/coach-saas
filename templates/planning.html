@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+{% block title %}Planning — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .page-wrapper { flex:1; padding:2.5rem 2rem; max-width:980px; margin:0 auto; width:100%; }
+
+  /* ── Header ── */
+  .page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .page-title  { font-size:1.4rem; font-weight:700; letter-spacing:-.02em; }
+  .page-sub    { font-size:.85rem; color:var(--muted); margin-top:.25rem; }
+  .btn-add { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; transition:background .15s; }
+  .btn-add:hover { background:var(--accent-h); }
+
+  /* ── View tabs ── */
+  .view-tabs { display:flex; gap:.4rem; margin-bottom:1.5rem; }
+  .view-tab { padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:var(--radius); font-size:.8rem; font-weight:600; color:var(--muted); cursor:pointer; transition:all .15s; }
+  .view-tab.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .view-tab:hover:not(.active) { border-color:var(--accent); color:var(--accent); }
+
+  /* ── Week nav ── */
+  .week-nav { display:flex; align-items:center; gap:.75rem; margin-bottom:1.25rem; }
+  .week-btn { width:32px; height:32px; border:1px solid var(--border); background:transparent; color:var(--muted); border-radius:6px; cursor:pointer; font-size:1rem; transition:all .15s; display:flex; align-items:center; justify-content:center; }
+  .week-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .week-label { font-size:.9rem; font-weight:600; }
+
+  /* ── Calendar week view ── */
+  .cal-grid {
+    display:grid; grid-template-columns:60px repeat(7, 1fr);
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); overflow:hidden; overflow-x:auto;
+  }
+  .cal-header { background:var(--bg); display:contents; }
+  .cal-head-cell { padding:.55rem .4rem; text-align:center; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); border-bottom:1px solid var(--border); border-right:1px solid var(--border); }
+  .cal-head-cell:last-child { border-right:none; }
+  .cal-head-cell.today-col { color:var(--accent); }
+  .cal-time-col { padding:.45rem .35rem; font-size:.65rem; color:var(--muted); text-align:right; border-right:1px solid var(--border); border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:flex-end; min-height:60px; }
+  .cal-day-col  { border-right:1px solid var(--border); border-bottom:1px solid var(--border); min-height:60px; position:relative; padding:.3rem; }
+  .cal-day-col:last-child { border-right:none; }
+  .cal-day-col.today-col { background:rgba(255,255,255,.03); }
+  .seance-chip {
+    background:rgba(0,85,164,.08); border:1px solid rgba(0,85,164,.2);
+    border-radius:5px; padding:.25rem .4rem; font-size:.7rem; font-weight:600;
+    color:var(--accent); cursor:pointer; margin-bottom:.25rem;
+    transition:background .15s; line-height:1.3;
+  }
+  .seance-chip:hover { background:rgba(0,85,164,.18); }
+  .seance-chip .chip-time { font-size:.63rem; color:var(--muted); font-weight:400; }
+
+  /* Match chip (calendrier) */
+  .match-chip {
+    background:rgba(0,85,164,.15); border:1px solid #0055A4;
+    border-radius:5px; padding:.25rem .4rem; font-size:.7rem; font-weight:700;
+    color:#0055A4; cursor:pointer; margin-bottom:.25rem;
+    transition:background .15s; line-height:1.3;
+  }
+  .match-chip:hover { background:rgba(0,85,164,.25); }
+  .match-chip .chip-badge { font-size:.55rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:.06em; color:#0055A4; opacity:.7; }
+
+  /* ── Prochain événement banner ── */
+  .next-event-banner {
+    display:flex; align-items:center; gap:1rem;
+    background:#FFFFFF; border:1px solid #E5E7EB; border-left:4px solid #0055A4;
+    border-radius:10px; padding:.85rem 1.1rem; margin-bottom:1.5rem;
+    flex-wrap:wrap;
+  }
+  .next-event-banner.next-match { border-left-color:#0055A4; }
+  .next-event-banner.next-seance { border-left-color:#00CC66; }
+  .neb-label { font-size:.58rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:.1em; color:var(--muted); }
+  .neb-title { font-size:.95rem; font-weight:700; color:#111118; margin-top:.1rem; }
+  .neb-meta  { font-size:.75rem; color:#6B7280; margin-top:.15rem; }
+  .neb-badge {
+    margin-left:auto; font-size:.58rem; font-weight:800; text-transform:uppercase;
+    letter-spacing:.07em; padding:3px 8px; border-radius:4px;
+    background:rgba(0,85,164,.1); color:#0055A4; border:1px solid rgba(0,85,164,.2);
+    white-space:nowrap;
+  }
+  .neb-badge.badge-seance {
+    background:rgba(0,204,102,.1); color:#00874A; border-color:rgba(0,204,102,.2);
+  }
+
+  /* ── List view ── */
+  .list-section { margin-bottom:1.5rem; }
+  .list-month-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:.6rem; }
+  .seance-list { display:flex; flex-direction:column; gap:.5rem; }
+  .seance-row {
+    background:#FFFFFF; border:1px solid #E5E7EB;
+    border-radius:var(--radius); padding:.75rem 1rem;
+    display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+    transition:border-color .15s;
+  }
+  .seance-row:hover { border-color:#D1D5DB; }
+  .seance-row.past { opacity:.55; }
+  .seance-row.today-row { border-left:3px solid var(--accent); }
+
+  /* Match row dans la liste */
+  .match-row-item {
+    background:#FFFFFF; border:1px solid #BFDBFE; border-left:3px solid #0055A4;
+    border-radius:var(--radius); padding:.75rem 1rem;
+    display:flex; align-items:center; gap:1rem; flex-wrap:wrap;
+  }
+  .match-badge {
+    font-size:.55rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+    padding:2px 7px; border-radius:3px;
+    background:rgba(0,85,164,.1); color:#0055A4; border:1px solid rgba(0,85,164,.25);
+    white-space:nowrap; flex-shrink:0;
+  }
+  .sr-date { display:flex; flex-direction:column; align-items:center; min-width:44px; }
+  .sr-day   { font-size:1.3rem; font-weight:700; line-height:1; }
+  .sr-month { font-size:.62rem; text-transform:uppercase; color:var(--muted); font-weight:600; letter-spacing:.05em; }
+  .sr-body { flex:1; min-width:0; }
+  .sr-theme { font-size:.88rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sr-theme.no-theme { color:var(--muted); font-weight:400; font-style:italic; }
+  .sr-meta  { font-size:.75rem; color:var(--muted); margin-top:.15rem; display:flex; flex-wrap:wrap; gap:.5rem; }
+  .sr-meta span { display:flex; align-items:center; gap:.2rem; }
+  .sr-presents { display:flex; align-items:center; gap:.3rem; flex-wrap:wrap; }
+  .pres-pill { font-size:.65rem; background:rgba(46,204,113,.1); color:#2ECC71; border:1px solid rgba(46,204,113,.2); border-radius:20px; padding:1px 7px; font-weight:600; }
+  .pres-count { font-size:.72rem; color:var(--muted); }
+  .sr-actions { display:flex; gap:.35rem; }
+  .btn-icon { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--muted); font-size:.8rem; cursor:pointer; transition:all .15s; }
+  .btn-icon:hover           { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+  .btn-icon.del:hover       { border-color:var(--error); color:var(--error); background:rgba(231,76,60,.08); }
+
+  .empty-week { text-align:center; padding:2.5rem; color:var(--muted); font-size:.85rem; background:var(--surface); border:1px dashed var(--border); border-radius:var(--radius); }
+  .empty-list { text-align:center; padding:3.5rem 2rem; color:var(--muted); }
+  .empty-list .ei { font-size:2.8rem; margin-bottom:.75rem; }
+  .empty-list p { font-size:.88rem; margin-bottom:1.25rem; }
+
+  /* ── Modals ── */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:100; align-items:center; justify-content:center; padding:1rem; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:2rem; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; }
+  .modal h3 { font-size:1.05rem; font-weight:700; margin-bottom:1.4rem; }
+  .modal-footer { display:flex; gap:.6rem; margin-top:1.4rem; }
+  .btn-cancel { padding:.65rem 1rem; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:var(--radius); font-size:.875rem; cursor:pointer; }
+  .btn-submit-m { flex:1; padding:.65rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; }
+  .btn-submit-m:hover { background:var(--accent-h); }
+
+  .form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+
+  /* Présents selector */
+  .presents-grid { display:flex; flex-wrap:wrap; gap:.4rem; max-height:160px; overflow-y:auto; padding:.35rem; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); }
+  .pres-toggle { padding:.3rem .7rem; border:1px solid var(--border); border-radius:20px; font-size:.73rem; cursor:pointer; transition:all .15s; color:var(--muted); user-select:none; }
+  .pres-toggle.on { background:rgba(46,204,113,.12); border-color:rgba(46,204,113,.35); color:#2ECC71; font-weight:600; }
+  .pres-toggle:hover:not(.on) { border-color:var(--accent); color:var(--accent); }
+
+  @media(max-width:640px){
+    .form-row2 { grid-template-columns:1fr; }
+    .cal-grid  { grid-template-columns:40px repeat(7,1fr); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">📅 Planning</h1>
+      <p class="page-sub">Organisez et suivez vos séances d'entraînement.</p>
+    </div>
+    {% if user_role != 'joueur' %}<button class="btn-add" onclick="openAdd()">+ Ajouter une séance</button>{% endif %}
+  </div>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+    <div style="padding:.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:.875rem;
+         background:{{ 'rgba(46,204,113,.1)' if cat=='success' else 'rgba(231,76,60,.1)' }};
+         border:1px solid {{ 'rgba(46,204,113,.3)' if cat=='success' else 'rgba(231,76,60,.3)' }};
+         color:{{ '#2ECC71' if cat=='success' else '#E74C3C' }};">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- Prochain événement -->
+  {% if prochain_event %}
+  {% set pe = prochain_event %}
+  {% set pe_parts = pe.date.split('-') if pe.date else ['','',''] %}
+  <div class="next-event-banner {{ 'next-match' if pe._type == 'match' else 'next-seance' }}">
+    <div class="sr-date" style="min-width:44px;">
+      <div class="sr-day" style="color:#111118;">{{ pe_parts[2] }}</div>
+      <div class="sr-month">{{ ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][pe_parts[1]|int - 1] if pe_parts[1] else '' }}</div>
+    </div>
+    <div>
+      <div class="neb-label">Prochain événement</div>
+      {% if pe._type == 'match' %}
+        <div class="neb-title">{{ pe.adversaire }}</div>
+        <div class="neb-meta">{{ 'Domicile' if pe.domicile else 'Extérieur' }}</div>
+      {% else %}
+        <div class="neb-title">{{ pe.theme or 'Séance d\'entraînement' }}</div>
+        <div class="neb-meta">
+          {% if pe.heure_debut %}{{ pe.heure_debut[:5] }}{% if pe.heure_fin %} – {{ pe.heure_fin[:5] }}{% endif %}{% endif %}
+          {% if pe.lieu %} · {{ pe.lieu }}{% endif %}
+        </div>
+      {% endif %}
+    </div>
+    <span class="neb-badge {{ 'badge-seance' if pe._type == 'seance' else '' }}">
+      {{ 'MATCH' if pe._type == 'match' else 'ENTRAÎNEMENT' }}
+    </span>
+  </div>
+  {% endif %}
+
+  <!-- View toggle -->
+  <div class="view-tabs">
+    <button class="view-tab active" id="tab-list" onclick="switchView('list')">☰ Liste</button>
+    <button class="view-tab"        id="tab-cal"  onclick="switchView('cal')">📆 Semaine</button>
+  </div>
+
+  <!-- ══ LIST VIEW ══ -->
+  <div id="view-list">
+    {% if events %}
+      {% set ns = namespace(cur_month='') %}
+      {% for event in events %}
+        {% set month_key = event.date[:7] if event.date else '' %}
+        {% if month_key and month_key != ns.cur_month %}
+          {% if not loop.first %}</div></div>{% endif %}
+          {% set ns.cur_month = month_key %}
+          <div class="list-section">
+          <div class="list-month-title">
+            {{ ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][event.date[5:7]|int - 1] }}
+            {{ event.date[:4] }}
+          </div>
+          <div class="seance-list">
+        {% endif %}
+
+        {% if event._type == 'match' %}
+          {# ── Ligne MATCH ── #}
+          {% set parts = event.date.split('-') %}
+          <a href="/matchs" class="match-row-item" style="text-decoration:none;color:inherit;">
+            <div class="sr-date">
+              <div class="sr-day" style="color:#0055A4;">{{ parts[2] }}</div>
+              <div class="sr-month">{{ ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parts[1]|int - 1] }}</div>
+            </div>
+            <div class="sr-body">
+              <div class="sr-theme" style="color:#0055A4;">{{ event.adversaire }}</div>
+              <div class="sr-meta">
+                <span>{{ '🏠 Domicile' if event.domicile else '✈️ Extérieur' }}</span>
+              </div>
+            </div>
+            <span class="match-badge">MATCH</span>
+          </a>
+
+        {% else %}
+          {# ── Ligne SÉANCE ── #}
+          {% set s = event %}
+          {% set is_today = (s.date_seance == today) %}
+          {% set is_past  = (s.date_seance < today) %}
+          {% set parts = s.date_seance.split('-') %}
+          <div class="seance-row {{ 'today-row' if is_today else ('past' if is_past) }}"
+               id="row-{{ s.id }}">
+            <div class="sr-date">
+              <div class="sr-day">{{ parts[2] }}</div>
+              <div class="sr-month">{{ ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parts[1]|int - 1] }}</div>
+            </div>
+            <div class="sr-body">
+              <div class="sr-theme {{ '' if s.theme else 'no-theme' }}">
+                {{ s.theme or 'Séance sans thème' }}
+              </div>
+              <div class="sr-meta">
+                {% if s.heure_debut %}
+                <span>🕐 {{ s.heure_debut[:5] }}{% if s.heure_fin %} – {{ s.heure_fin[:5] }}{% endif %}</span>
+                {% endif %}
+                {% if s.lieu %}
+                <span>📍 {{ s.lieu }}</span>
+                {% endif %}
+                {% if s.presents %}
+                <span>👥 {{ s.presents | length }} présent{{ 's' if s.presents|length > 1 }}</span>
+                {% endif %}
+              </div>
+            </div>
+            {% if s.notes %}
+            <div style="font-size:.75rem;color:var(--muted);flex:1;min-width:120px;
+                        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;"
+                 title="{{ s.notes }}">{{ s.notes }}</div>
+            {% endif %}
+            {% if user_role != 'joueur' %}
+            <div class="sr-actions">
+              <button class="btn-icon" title="Modifier"
+                onclick='openEdit({{ s | tojson }})'>✏️</button>
+              <form method="POST" action="/planning/supprimer/{{ s.id }}" style="margin:0;"
+                    onsubmit="return confirm('Supprimer cette séance ?')">
+                <button type="submit" class="btn-icon del" title="Supprimer">🗑</button>
+              </form>
+            </div>
+            {% endif %}
+          </div>
+        {% endif %}
+
+      {% endfor %}
+      </div></div>
+    {% else %}
+    <div class="empty-list">
+      <div class="ei">📅</div>
+      <p>Aucune séance ni match planifiés.<br>Ajoutez votre première séance d'entraînement.</p>
+      {% if user_role != 'joueur' %}<button class="btn-add" onclick="openAdd()">+ Ajouter une séance</button>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ══ CALENDAR WEEK VIEW ══ -->
+  <div id="view-cal" style="display:none;">
+    <div class="week-nav">
+      <button class="week-btn" onclick="weekOffset(-1)">‹</button>
+      <span class="week-label" id="week-label">—</span>
+      <button class="week-btn" onclick="weekOffset(+1)">›</button>
+      <button class="week-btn" onclick="goToday()" title="Aujourd'hui" style="font-size:.7rem;width:auto;padding:0 .6rem;">Auj.</button>
+    </div>
+    <div class="cal-grid" id="cal-grid">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+
+</div>
+
+{% if user_role != 'joueur' %}
+<!-- ══════ MODAL Ajouter séance ══════ -->
+<div id="modal-add" class="modal-overlay" onclick="closeOnBackdrop(event,'modal-add')">
+  <div class="modal">
+    <h3 id="modal-title">Ajouter une séance</h3>
+    <form method="POST" id="form-seance" action="/planning/ajouter" onsubmit="serializePresents()">
+      <input type="hidden" name="presents" id="presents-hidden">
+
+      <div class="form-group" style="margin-bottom:.9rem;">
+        <label>Date *</label>
+        <input type="date" name="date_seance" id="f-date" required>
+      </div>
+
+      <div class="form-row2" style="margin-bottom:.9rem;">
+        <div class="form-group">
+          <label>Heure de début</label>
+          <input type="time" name="heure_debut" id="f-hdebut">
+        </div>
+        <div class="form-group">
+          <label>Heure de fin</label>
+          <input type="time" name="heure_fin" id="f-hfin">
+        </div>
+      </div>
+
+      <div class="form-row2" style="margin-bottom:.9rem;">
+        <div class="form-group">
+          <label>Lieu / Terrain</label>
+          <input type="text" name="lieu" id="f-lieu" placeholder="ex : Stade Bel Air">
+        </div>
+        <div class="form-group">
+          <label>Thème / Objectif</label>
+          <input type="text" name="theme" id="f-theme" placeholder="ex : Défense, Attaque placée…">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:.9rem;">
+        <label>Notes</label>
+        <textarea name="notes" id="f-notes" rows="2" placeholder="Remarques, consignes…"></textarea>
+      </div>
+
+      {% if joueurs %}
+      <div class="form-group" style="margin-bottom:.9rem;">
+        <label>Joueurs présents</label>
+        <div class="presents-grid" id="presents-grid">
+          {% for j in joueurs %}
+          <div class="pres-toggle" data-id="{{ j.id }}" data-nom="{{ j.prenom }} {{ j.nom }}"
+               onclick="togglePresent(this)">{{ j.prenom }} {{ j.nom }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-add')">Annuler</button>
+        <button type="submit" class="btn-submit-m" id="modal-submit-btn">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+
+<script>
+/* ── Data from server ── */
+const SEANCES = {{ seances | tojson }};
+const MATCHS  = {{ matchs_futurs | tojson }};
+const TODAY   = {{ today | tojson }};
+const JOUEURS = {{ joueurs | tojson }};
+
+/* ── Modal helpers ── */
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeOnBackdrop(e, id) { if (e.target.id === id) closeModal(id); }
+
+/* ── View switch ── */
+function switchView(v) {
+  document.getElementById('view-list').style.display = v === 'list' ? '' : 'none';
+  document.getElementById('view-cal').style.display  = v === 'cal'  ? '' : 'none';
+  document.getElementById('tab-list').className = 'view-tab' + (v==='list' ? ' active' : '');
+  document.getElementById('tab-cal').className  = 'view-tab' + (v==='cal'  ? ' active' : '');
+  if (v === 'cal') renderWeek();
+}
+
+/* ── Add / Edit ── */
+let editMode = false;
+let editId   = null;
+
+function resetForm() {
+  document.getElementById('f-date').value   = '';
+  document.getElementById('f-hdebut').value = '';
+  document.getElementById('f-hfin').value   = '';
+  document.getElementById('f-lieu').value   = '';
+  document.getElementById('f-theme').value  = '';
+  document.getElementById('f-notes').value  = '';
+  document.querySelectorAll('.pres-toggle').forEach(el => el.classList.remove('on'));
+}
+
+function openAdd(prefillDate) {
+  editMode = false; editId = null;
+  resetForm();
+  document.getElementById('form-seance').action = '/planning/ajouter';
+  document.getElementById('modal-title').textContent = 'Ajouter une séance';
+  document.getElementById('modal-submit-btn').textContent = 'Ajouter';
+  if (prefillDate) document.getElementById('f-date').value = prefillDate;
+  openModal('modal-add');
+}
+
+function openEdit(s) {
+  editMode = true; editId = s.id;
+  resetForm();
+  document.getElementById('form-seance').action = '/planning/modifier/' + s.id;
+  document.getElementById('modal-title').textContent = 'Modifier la séance';
+  document.getElementById('modal-submit-btn').textContent = 'Enregistrer';
+  document.getElementById('f-date').value   = s.date_seance  || '';
+  document.getElementById('f-hdebut').value = (s.heure_debut || '').slice(0,5);
+  document.getElementById('f-hfin').value   = (s.heure_fin   || '').slice(0,5);
+  document.getElementById('f-lieu').value   = s.lieu  || '';
+  document.getElementById('f-theme').value  = s.theme || '';
+  document.getElementById('f-notes').value  = s.notes || '';
+  const presents = Array.isArray(s.presents) ? s.presents : [];
+  document.querySelectorAll('.pres-toggle').forEach(el => {
+    if (presents.includes(el.dataset.id)) el.classList.add('on');
+  });
+  openModal('modal-add');
+}
+
+/* ── Présents ── */
+function togglePresent(el) { el.classList.toggle('on'); }
+function serializePresents() {
+  const ids = [];
+  document.querySelectorAll('.pres-toggle.on').forEach(el => ids.push(el.dataset.id));
+  document.getElementById('presents-hidden').value = JSON.stringify(ids);
+}
+
+/* ══════════════════════════════════════
+   CALENDAR WEEK VIEW
+══════════════════════════════════════ */
+let weekDelta = 0;
+
+function getMondayOfWeek(refDate, delta) {
+  const d = new Date(refDate);
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1 - day);
+  d.setDate(d.getDate() + diff + delta * 7);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function fmtDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function weekOffset(n) { weekDelta += n; renderWeek(); }
+function goToday()     { weekDelta = 0;  renderWeek(); }
+
+function renderWeek() {
+  const today = new Date(TODAY + 'T00:00:00');
+  const monday = getMondayOfWeek(today, weekDelta);
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    days.push(d);
+  }
+
+  // Week label
+  const opts = { day:'numeric', month:'short' };
+  const from = days[0].toLocaleDateString('fr-FR', opts);
+  const to   = days[6].toLocaleDateString('fr-FR', opts);
+  document.getElementById('week-label').textContent = `Semaine du ${from} au ${to}`;
+
+  const dayNames = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+  const todayStr = TODAY;
+
+  // Build map: dateStr -> [events]
+  const map = {};
+  SEANCES.forEach(s => {
+    if (!map[s.date_seance]) map[s.date_seance] = [];
+    map[s.date_seance].push({...s, _type: 'seance'});
+  });
+  MATCHS.forEach(m => {
+    if (!map[m.date_match]) map[m.date_match] = [];
+    map[m.date_match].push({...m, _type: 'match'});
+  });
+
+  let html = '';
+  // Header row
+  html += '<div class="cal-head-cell" style="border-bottom:1px solid var(--border)"></div>';
+  days.forEach((d,i) => {
+    const ds = fmtDate(d);
+    const isToday = ds === todayStr;
+    html += `<div class="cal-head-cell${isToday?' today-col':''}">
+      <div>${dayNames[i]}</div>
+      <div style="font-size:.85rem;font-weight:700;color:${isToday?'var(--accent)':'var(--text)'}">${d.getDate()}</div>
+    </div>`;
+  });
+
+  // A single "all-day" row
+  html += '<div class="cal-time-col">séances</div>';
+  let hasSomething = false;
+  days.forEach(d => {
+    const ds = fmtDate(d);
+    const isToday = ds === todayStr;
+    const seancesDay = map[ds] || [];
+    hasSomething = hasSomething || seancesDay.length > 0;
+    html += `<div class="cal-day-col${isToday?' today-col':''}" style="min-height:80px;">`;
+    seancesDay.forEach(item => {
+      if (item._type === 'match') {
+        const loc = item.domicile ? '🏠' : '✈️';
+        html += `<div class="match-chip" onclick="window.location='/matchs'" title="${item.adversaire}">`
+              + `<div>${loc} ${item.adversaire}</div>`
+              + `<div class="chip-badge">MATCH</div>`
+              + `</div>`;
+      } else {
+        const time = item.heure_debut ? item.heure_debut.slice(0,5) : '';
+        html += `<div class="seance-chip" onclick='openEdit(${JSON.stringify(item).replace(/'/g,"\\'")})'>`
+              + `<div>${item.theme || 'Séance'}</div>`
+              + (time ? `<div class="chip-time">${time}</div>` : '')
+              + `</div>`;
+      }
+    });
+    // Click on empty cell to add
+    html += `<div style="font-size:.65rem;color:var(--border);text-align:center;cursor:pointer;margin-top:.25rem;"
+                  onclick="openAdd('${ds}')" title="Ajouter une séance ce jour">+</div>`;
+    html += '</div>';
+  });
+
+  document.getElementById('cal-grid').innerHTML = html;
+
+  if (!hasSomething) {
+    document.getElementById('cal-grid').insertAdjacentHTML('afterend',
+      `<div class="empty-week" style="margin-top:.75rem;">
+         Aucune séance cette semaine — <a href="#" onclick="openAdd();return false;" style="color:var(--accent);">en ajouter une</a>
+       </div>`);
+  } else {
+    const old = document.querySelector('.empty-week');
+    if (old) old.remove();
+  }
+}
+</script>
+{% endblock %}

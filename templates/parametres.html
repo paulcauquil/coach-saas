@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}Paramètres — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .settings-wrapper {
+    flex: 1;
+    padding: 2.5rem 2rem;
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .page-header { margin-bottom: 2rem; }
+  .page-header h1 {
+    font-size: 1.6rem; font-weight: 700; letter-spacing: -.02em;
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .page-header p { color: var(--muted); font-size: .875rem; margin-top: .3rem; }
+
+  /* ── Sections ── */
+  .settings-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .section-head {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: .5rem;
+  }
+  .section-head h2 { font-size: .95rem; font-weight: 700; }
+  .section-head .section-icon { font-size: 1.1rem; }
+  .section-body { padding: 1.5rem; }
+
+  /* ── Logo preview ── */
+  .logo-area {
+    display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+  }
+  .logo-preview {
+    width: 80px; height: 80px; border-radius: 14px;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; flex-shrink: 0;
+    font-size: 1.4rem; font-weight: 800; color: #fff;
+    letter-spacing: .02em;
+  }
+  .logo-preview img { width: 100%; height: 100%; object-fit: contain; border-radius: 12px; }
+  .logo-info { flex: 1; }
+  .logo-info p { font-size: .82rem; color: var(--muted); margin-top: .3rem; }
+  .logo-info strong { font-size: .9rem; }
+
+  /* File input custom */
+  .file-input-wrap { position: relative; display: inline-block; }
+  .file-input-wrap input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    width: 100%; height: 100%; border: none; background: none;
+  }
+  .file-input-btn {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .5rem 1rem; border: 1px solid var(--border);
+    border-radius: var(--radius); font-size: .85rem; font-weight: 600;
+    color: var(--text); background: var(--bg); cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .file-input-btn:hover { border-color: var(--accent); background: rgba(0,85,164,.04); }
+  #file-name { font-size: .78rem; color: var(--muted); margin-left: .5rem; }
+
+  /* ── Colors ── */
+  .colors-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;
+  }
+  @media (max-width: 520px) { .colors-row { grid-template-columns: 1fr; } }
+
+  .color-group label { margin-bottom: .5rem; }
+  .color-pick-row {
+    display: flex; align-items: center; gap: .75rem;
+  }
+  input[type="color"] {
+    width: 44px; height: 44px; border: 2px solid var(--border);
+    border-radius: 8px; cursor: pointer; padding: 2px;
+    background: var(--bg); flex-shrink: 0;
+  }
+  .color-hex {
+    flex: 1; font-family: 'JetBrains Mono', monospace, sans-serif;
+    font-size: .85rem; letter-spacing: .05em; text-transform: uppercase;
+  }
+  .color-swatch {
+    width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Preview bar ── */
+  .preview-bar {
+    display: flex; align-items: center; gap: .65rem;
+    padding: .75rem 1rem; background: var(--bg);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    margin-top: 1.25rem; flex-wrap: wrap;
+  }
+  .preview-label { font-size: .75rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .preview-dot {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .6rem; font-weight: 700; color: #fff;
+  }
+  .preview-caption { font-size: .78rem; color: var(--muted); }
+
+  /* ── Footer ── */
+  .settings-footer {
+    display: flex; gap: .75rem; justify-content: flex-end;
+    margin-top: .5rem;
+  }
+  .btn-save {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .65rem 1.4rem; background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius); font-size: .9rem; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+  }
+  .btn-save:hover { background: var(--accent-h); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-wrapper">
+
+  <div class="page-header">
+    <h1>⚙️ Paramètres du club</h1>
+    <p>Personnalisez l'identité visuelle de votre club dans Tactix.</p>
+  </div>
+
+  <form method="POST" action="/parametres" enctype="multipart/form-data">
+
+    <!-- ── Informations du club ── -->
+    <div class="settings-section">
+      <div class="section-head">
+        <span class="section-icon">🏟️</span>
+        <h2>Informations du club</h2>
+      </div>
+      <div class="section-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+          <div class="form-group">
+            <label>Nom du club *</label>
+            <input type="text" name="nom_club" value="{{ nom_club }}" required placeholder="ex : RC Jacou">
+          </div>
+          <div class="form-group">
+            <label>Ville</label>
+            <input type="text" name="ville" value="{{ ville }}" placeholder="ex : Jacou">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:.25rem;">
+          <label>Sport</label>
+          <select name="sport">
+            {% for s in sports_list %}
+            <option value="{{ s }}" {{ 'selected' if s == sport }}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Logo ── -->
+    <div class="settings-section">
+      <div class="section-head">
+        <span class="section-icon">🖼️</span>
+        <h2>Logo du club</h2>
+      </div>
+      <div class="section-body">
+        <div class="logo-area">
+          <div class="logo-preview" id="logo-preview"
+               style="background:linear-gradient(135deg,{{ couleur_principale }},{{ couleur_secondaire }});">
+            {% if logo_url %}
+              <img src="{{ logo_url }}" alt="Logo club" id="logo-img">
+            {% else %}
+              <span id="logo-initials">{{ club_initiales }}</span>
+            {% endif %}
+          </div>
+          <div class="logo-info">
+            <strong>{{ nom_club }}</strong>
+            <p>PNG, JPG, SVG ou WEBP · max 2 Mo<br>Affiché dans la navigation sur toutes les pages.</p>
+            <div style="margin-top:.75rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+              <div class="file-input-wrap">
+                <input type="file" name="logo" id="logo-input" accept=".png,.jpg,.jpeg,.svg,.webp">
+                <div class="file-input-btn">📁 Choisir un fichier</div>
+              </div>
+              <span id="file-name">Aucun fichier sélectionné</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Couleurs ── -->
+    <div class="settings-section">
+      <div class="section-head">
+        <span class="section-icon">🎨</span>
+        <h2>Couleurs du club</h2>
+      </div>
+      <div class="section-body">
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:1.25rem;">
+          Ces couleurs sont utilisées dans la composition visuelle (avants / arrières en rugby) et teintent les éléments de l'interface.
+        </p>
+        <div class="colors-row">
+          <div class="color-group form-group">
+            <label>Couleur principale <span style="color:var(--muted);text-transform:none;font-size:.72rem;">(avants · n°1-8)</span></label>
+            <div class="color-pick-row">
+              <input type="color" id="cp-picker" name="couleur_principale"
+                     value="{{ couleur_principale }}" oninput="syncColor('cp')">
+              <input type="text" id="cp-hex" class="color-hex"
+                     value="{{ couleur_principale }}" maxlength="7" placeholder="#E24B4A"
+                     oninput="syncHex('cp')">
+              <div class="color-swatch" id="cp-swatch" style="background:{{ couleur_principale }};"></div>
+            </div>
+          </div>
+          <div class="color-group form-group">
+            <label>Couleur secondaire <span style="color:var(--muted);text-transform:none;font-size:.72rem;">(arrières · n°9-15)</span></label>
+            <div class="color-pick-row">
+              <input type="color" id="cs-picker" name="couleur_secondaire"
+                     value="{{ couleur_secondaire }}" oninput="syncColor('cs')">
+              <input type="text" id="cs-hex" class="color-hex"
+                     value="{{ couleur_secondaire }}" maxlength="7" placeholder="#378ADD"
+                     oninput="syncHex('cs')">
+              <div class="color-swatch" id="cs-swatch" style="background:{{ couleur_secondaire }};"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Aperçu -->
+        <div class="preview-bar">
+          <span class="preview-label">Aperçu composition</span>
+          <div class="preview-dot" id="prev-c1" style="background:{{ couleur_principale }};">1</div>
+          <div class="preview-dot" id="prev-c1b" style="background:{{ couleur_principale }};">8</div>
+          <span class="preview-caption">Avants</span>
+          <div style="width:1px;height:20px;background:var(--border);margin:0 .25rem;"></div>
+          <div class="preview-dot" id="prev-c2" style="background:{{ couleur_secondaire }};">9</div>
+          <div class="preview-dot" id="prev-c2b" style="background:{{ couleur_secondaire }};">15</div>
+          <span class="preview-caption">Arrières</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-footer">
+      <button type="submit" class="btn-save">💾 Enregistrer les paramètres</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+// ── Sync couleur picker ↔ texte hex ↔ swatch + preview
+function syncColor(pfx) {
+  const val = document.getElementById(pfx + '-picker').value;
+  document.getElementById(pfx + '-hex').value = val;
+  document.getElementById(pfx + '-swatch').style.background = val;
+  updatePreview();
+}
+function syncHex(pfx) {
+  const val = document.getElementById(pfx + '-hex').value;
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    document.getElementById(pfx + '-picker').value = val;
+    document.getElementById(pfx + '-swatch').style.background = val;
+    updatePreview();
+  }
+}
+function updatePreview() {
+  const c1 = document.getElementById('cp-picker').value;
+  const c2 = document.getElementById('cs-picker').value;
+  ['prev-c1','prev-c1b'].forEach(id => document.getElementById(id).style.background = c1);
+  ['prev-c2','prev-c2b'].forEach(id => document.getElementById(id).style.background = c2);
+  // Mettre à jour aussi le gradient du logo preview
+  const lp = document.getElementById('logo-preview');
+  if (!document.getElementById('logo-img')) {
+    lp.style.background = `linear-gradient(135deg,${c1},${c2})`;
+  }
+}
+
+// ── Aperçu logo local avant upload
+document.getElementById('logo-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  document.getElementById('file-name').textContent = file ? file.name : 'Aucun fichier sélectionné';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const lp = document.getElementById('logo-preview');
+    lp.innerHTML = `<img src="${ev.target.result}" alt="aperçu" style="width:100%;height:100%;object-fit:contain;border-radius:12px;">`;
+  };
+  reader.readAsDataURL(file);
+});
+</script>
+{% endblock %}

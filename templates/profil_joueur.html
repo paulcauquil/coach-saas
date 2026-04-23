@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+{% block title %}{{ joueur.prenom }} {{ joueur.nom }} — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/effectif" style="font-size:.875rem;color:var(--muted);">← Effectif</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .pj-wrapper { flex:1; padding:2rem 2rem 3rem; max-width:960px; margin:0 auto; width:100%; }
+
+  /* ── Header ── */
+  .pj-header { display:flex; align-items:center; gap:1.5rem; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .pj-avatar { width:72px; height:72px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.6rem; font-weight:700; color:#fff; flex-shrink:0; }
+  .pj-info   { flex:1; min-width:0; }
+  .pj-name   { font-size:1.4rem; font-weight:700; letter-spacing:-.02em; }
+  .pj-sub    { font-size:.82rem; color:var(--muted); margin-top:.2rem; display:flex; gap:.75rem; flex-wrap:wrap; }
+  .pj-right  { display:flex; flex-direction:column; align-items:flex-end; gap:.5rem; }
+
+  .badge-dispo { font-size:.72rem; font-weight:700; padding:3px 10px; border-radius:20px; }
+  .bd-dispo  { background:rgba(46,204,113,.12);  color:#2ECC71; border:1px solid rgba(46,204,113,.25); }
+  .bd-blesse { background:rgba(231,76,60,.12);  color:#E74C3C; border:1px solid rgba(231,76,60,.25); }
+  .bd-suspen { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.25); }
+
+  /* ── Grid layout ── */
+  .pj-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+  .pj-grid .span2 { grid-column:1/-1; }
+  @media(max-width:640px) { .pj-grid { grid-template-columns:1fr; } .pj-grid .span2 { grid-column:1; } }
+
+  /* ── Cards ── */
+  .pj-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .pj-card-hdr { display:flex; align-items:center; justify-content:space-between; padding:.8rem 1.1rem; border-bottom:1px solid var(--border); }
+  .pj-card-hdr h2 { font-size:.82rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .pj-card-body { padding:1.1rem; }
+
+  /* ── Note de forme ── */
+  .stars-row { display:flex; gap:.35rem; align-items:center; }
+  .star { font-size:1.6rem; cursor:pointer; transition:transform .1s; line-height:1; }
+  .star:hover { transform:scale(1.2); }
+  .note-date { font-size:.72rem; color:var(--muted); margin-top:.4rem; }
+
+  /* ── Forme 5 matchs ── */
+  .forme-row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .forme-badge { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:700; cursor:default; position:relative; }
+  .fb-v { background:rgba(46,204,113,.2);  color:#2ECC71; border:1px solid rgba(46,204,113,.3); }
+  .fb-n { background:rgba(245,158,11,.2); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+  .fb-d { background:rgba(231,76,60,.2);  color:#E74C3C; border:1px solid rgba(231,76,60,.3); }
+  .fb-a { background:rgba(107,114,128,.12); color:var(--muted); border:1px solid var(--border); }
+  .forme-badge:hover::after { content:attr(data-tip); position:absolute; bottom:110%; left:50%; transform:translateX(-50%); background:#1a1a2e; border:1px solid var(--border); color:var(--text); font-size:.65rem; white-space:nowrap; padding:3px 7px; border-radius:4px; z-index:10; }
+  .forme-empty { font-size:.82rem; color:var(--muted); font-style:italic; }
+
+  /* ── Metric cards ── */
+  .metrics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:.6rem; }
+  .metric { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:.7rem .5rem; text-align:center; }
+  .metric-val { font-size:1.5rem; font-weight:700; line-height:1; }
+  .metric-lbl { font-size:.62rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-top:.2rem; }
+
+  /* ── Absences ── */
+  .abs-row { display:flex; align-items:center; gap:.6rem; padding:.55rem 0; border-bottom:1px solid var(--border); font-size:.83rem; flex-wrap:wrap; }
+  .abs-row:last-child { border-bottom:none; }
+  .abs-raison { font-size:.68rem; font-weight:700; padding:2px 7px; border-radius:20px; }
+  .r-blessure  { background:rgba(231,76,60,.1); color:#E74C3C; border:1px solid rgba(231,76,60,.2); }
+  .r-suspension{ background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.2);}
+  .r-personnel { background:rgba(107,114,128,.1);color:var(--muted);border:1px solid var(--border); }
+  .r-convoque  { background:rgba(107,114,128,.1);color:var(--muted);border:1px solid var(--border); }
+
+  /* ── Historique table ── */
+  .hist-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+  .hist-table th { padding:.45rem .7rem; text-align:left; font-size:.63rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); border-bottom:1px solid var(--border); }
+  .hist-table td { padding:.5rem .7rem; border-bottom:1px solid var(--border); }
+  .hist-table tr:last-child td { border-bottom:none; }
+  .hist-table tbody tr:hover { background:rgba(255,255,255,.02); }
+  .res-v { color:#2ECC71; font-weight:700; }
+  .res-n { color:#f59e0b; font-weight:700; }
+  .res-d { color:#E74C3C; font-weight:700; }
+
+  /* ── Forms ── */
+  .btn-sm { padding:.4rem .85rem; border:1px solid var(--border); border-radius:var(--radius); background:transparent; color:var(--muted); font-size:.78rem; cursor:pointer; transition:all .15s; }
+  .btn-sm:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-sm.danger:hover { border-color:var(--error); color:var(--error); }
+  .btn-accent { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn-accent:hover { background:var(--accent-h) !important; color:#fff !important; border-color:var(--accent-h) !important; }
+
+  .inline-form { display:flex; gap:.5rem; flex-wrap:wrap; align-items:flex-end; margin-top:.75rem; }
+  .inline-form .form-group { display:flex; flex-direction:column; gap:.3rem; }
+  .inline-form label { font-size:.63rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .inline-form select, .inline-form input { font-size:.8rem; padding:.4rem .55rem; }
+
+  .empty-sub { font-size:.82rem; color:var(--muted); font-style:italic; padding:.5rem 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pj-wrapper">
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+    <div style="padding:.7rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:.875rem;
+         background:{{ 'rgba(46,204,113,.1)' if cat=='success' else 'rgba(231,76,60,.1)' }};
+         border:1px solid {{ 'rgba(46,204,113,.3)' if cat=='success' else 'rgba(231,76,60,.3)' }};
+         color:{{ '#2ECC71' if cat=='success' else '#E74C3C' }};">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% set initiales = (joueur.prenom[0] + joueur.nom[0])|upper if joueur.prenom and joueur.nom else '?' %}
+  {% set dispo = joueur.statut_disponibilite or 'Disponible' %}
+
+  <!-- ── En-tête ── -->
+  <div class="pj-header">
+    <div class="pj-avatar" style="position:relative;background:linear-gradient(135deg,{{ club_c1 }},{{ club_c2 }});">
+      {% if joueur.photo_url %}
+      <img src="{{ joueur.photo_url }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+      {% else %}
+      {{ initiales }}
+      {% endif %}
+      {% if indispo_active %}
+        {% set ic = indispo_color(indispo_active.type, indispo_active.gravite or '') %}
+        <span style="position:absolute;bottom:-2px;right:-2px;width:20px;height:20px;
+                     border-radius:50%;background:{{ ic }};border:2px solid var(--surface);
+                     display:flex;align-items:center;justify-content:center;font-size:10px;">🩹</span>
+      {% endif %}
+    </div>
+    <div class="pj-info">
+      <div class="pj-name">{{ joueur.prenom }} {{ joueur.nom }}</div>
+      <div class="pj-sub">
+        {% if joueur.numero %}<span>#{{ joueur.numero }}</span>{% endif %}
+        {% if joueur.poste %}<span>{{ joueur.poste }}</span>{% endif %}
+        {% if joueur.categorie %}<span>{{ joueur.categorie }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="pj-right">
+      {% if indispo_active %}
+        {% set ic = indispo_color(indispo_active.type, indispo_active.gravite or '') %}
+        <span class="badge-dispo"
+              style="background:{{ ic }}18;color:{{ ic }};border:1px solid {{ ic }}44;">
+          {{ indispo_active.type }}{% if indispo_active.gravite %} · {{ indispo_active.gravite }}{% endif %}
+        </span>
+        {% if indispo_active.description %}
+          <span style="font-size:.72rem;color:var(--muted);text-align:right;">
+            {{ indispo_active.description }}
+          </span>
+        {% endif %}
+        {% if indispo_active.date_retour_estimee %}
+          <span style="font-size:.72rem;color:var(--muted);">
+            Retour estimé : {{ indispo_active.date_retour_estimee[8:10] }}/{{ indispo_active.date_retour_estimee[5:7] }}/{{ indispo_active.date_retour_estimee[:4] }}
+          </span>
+        {% endif %}
+        {% if can_edit %}
+          <form method="post" action="/blessures/clore/{{ indispo_active.id }}" style="margin:0;">
+            <button type="submit" class="btn-sm btn-accent"
+                    style="font-size:.72rem;padding:.3rem .7rem;">
+              ✓ Marquer disponible
+            </button>
+          </form>
+        {% endif %}
+      {% else %}
+        {% set bd = 'bd-dispo' if dispo == 'Disponible' else ('bd-blesse' if dispo == 'Blessé' else 'bd-suspen') %}
+        <span class="badge-dispo {{ bd }}">{{ dispo }}</span>
+        {% if can_edit %}
+        <form method="POST" action="/joueurs/{{ joueur.id }}/note-forme" style="margin:0;display:flex;gap:.4rem;align-items:center;">
+          <select name="statut_disponibilite" style="font-size:.75rem;padding:.3rem .5rem;">
+            {% for st in ['Disponible','Blessé','Suspendu'] %}
+            <option value="{{ st }}" {{ 'selected' if dispo == st }}>{{ st }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn-sm btn-accent">Mettre à jour</button>
+        </form>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="pj-grid">
+
+    <!-- Note de forme -->
+    <div class="pj-card">
+      <div class="pj-card-hdr"><h2>Note de forme</h2></div>
+      <div class="pj-card-body">
+        {% if can_edit %}
+        <form method="POST" action="/joueurs/{{ joueur.id }}/note-forme" id="note-form">
+          <input type="hidden" name="note_forme" id="note-val" value="{{ joueur.note_forme or 0 }}">
+          <input type="hidden" name="statut_disponibilite" value="{{ dispo }}">
+          <div class="stars-row" id="stars-row">
+            {% for i in range(1, 6) %}
+            <span class="star" data-val="{{ i }}" onclick="setNote({{ i }})">{{ '★' if (joueur.note_forme or 0) >= i else '☆' }}</span>
+            {% endfor %}
+          </div>
+        </form>
+        {% else %}
+        <div class="stars-row">
+          {% for i in range(1, 6) %}
+          <span style="font-size:1.6rem;color:{{ '#f59e0b' if (joueur.note_forme or 0) >= i else 'var(--border)' }};">★</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if joueur.note_forme %}
+        <div class="note-date">Dernière mise à jour :
+          {% if joueur.note_forme_updated_at %}{{ joueur.note_forme_updated_at[:10] }}{% else %}—{% endif %}
+        </div>
+        {% else %}
+        <div class="note-date">Aucune note attribuée</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Forme 5 derniers matchs -->
+    <div class="pj-card">
+      <div class="pj-card-hdr"><h2>Forme récente</h2><span style="font-size:.72rem;color:var(--muted);">5 derniers matchs</span></div>
+      <div class="pj-card-body">
+        {% if forme %}
+        <div class="forme-row">
+          {% for f in forme %}
+          {% set cls = 'fb-v' if f.statut=='victoire' else ('fb-n' if f.statut=='nul' else ('fb-d' if f.statut=='defaite' else 'fb-a')) %}
+          {% set lbl = 'V' if f.statut=='victoire' else ('N' if f.statut=='nul' else ('D' if f.statut=='defaite' else 'A')) %}
+          {% set tip = (f.match.date_match or '') + ' vs ' + (f.match.adversaire or '?') %}
+          <div class="forme-badge {{ cls }}" data-tip="{{ tip }}">{{ lbl }}</div>
+          {% endfor %}
+          {% for i in range(5 - forme|length) %}
+          <div class="forme-badge fb-a" data-tip="Pas de match">–</div>
+          {% endfor %}
+        </div>
+        <div style="display:flex;gap:.75rem;margin-top:.75rem;font-size:.72rem;color:var(--muted);">
+          <span><span style="color:#2ECC71;font-weight:700;">V</span> Victoire</span>
+          <span><span style="color:#f59e0b;font-weight:700;">N</span> Nul</span>
+          <span><span style="color:#E74C3C;font-weight:700;">D</span> Défaite</span>
+          <span><span style="color:var(--muted);font-weight:700;">A</span> Absent</span>
+        </div>
+        {% else %}
+        <p class="empty-sub">Aucun match enregistré.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Stats cumulées -->
+    <div class="pj-card span2">
+      <div class="pj-card-hdr"><h2>Stats saison</h2><span style="font-size:.72rem;color:var(--muted);">{{ sport }}</span></div>
+      <div class="pj-card-body">
+        <div class="metrics-grid">
+          {% for field, label in stats_fields_labels %}
+          <div class="metric">
+            <div class="metric-val">{{ stats_total.get(field, 0) }}</div>
+            <div class="metric-lbl">{{ label }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Absences -->
+    <div class="pj-card">
+      <div class="pj-card-hdr">
+        <h2>Absences</h2>
+        <span style="font-size:.72rem;color:var(--muted);">{{ absences|length }}</span>
+      </div>
+      <div class="pj-card-body">
+        {% if absences %}
+        {% set raison_cls = {'Blessure':'r-blessure','Suspension':'r-suspension','Personnel':'r-personnel','Non convoqué':'r-convoque'} %}
+        {% for a in absences %}
+        <div class="abs-row">
+          <span style="flex:1;font-size:.82rem;">{{ a.date_abs or '—' }}</span>
+          <span class="abs-raison {{ raison_cls.get(a.raison, 'r-convoque') }}">{{ a.raison }}</span>
+          {% if a.notes %}<span style="font-size:.75rem;color:var(--muted);flex:1;">{{ a.notes }}</span>{% endif %}
+          {% if can_edit %}
+          <form method="POST" action="/joueurs/{{ joueur.id }}/absence/supprimer/{{ a.id }}" style="margin:0;">
+            <button type="submit" class="btn-sm danger" style="padding:.25rem .5rem;font-size:.7rem;">✕</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="empty-sub">Aucune absence enregistrée.</p>
+        {% endif %}
+
+        {% if can_edit %}
+        <form method="POST" action="/joueurs/{{ joueur.id }}/absence/ajouter" class="inline-form">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" name="date_abs">
+          </div>
+          <div class="form-group">
+            <label>Match lié</label>
+            <select name="match_id" style="min-width:130px;">
+              <option value="">— Aucun —</option>
+              {% for m in matchs %}
+              <option value="{{ m.id }}">{{ m.date_match or '?' }} vs {{ m.adversaire or '?' }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Raison</label>
+            <select name="raison">
+              <option>Non convoqué</option>
+              <option>Blessure</option>
+              <option>Suspension</option>
+              <option>Personnel</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <input type="text" name="notes" placeholder="Optionnel">
+          </div>
+          <button type="submit" class="btn-sm btn-accent" style="margin-bottom:1px;">+ Ajouter</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Blessures & Indisponibilités -->
+    <div class="pj-card span2">
+      <div class="pj-card-hdr">
+        <h2>🩹 Blessures & Indisponibilités</h2>
+        <a href="/blessures" style="font-size:.72rem;color:var(--accent);">Gérer →</a>
+      </div>
+      <div class="pj-card-body">
+        {% if indispos_joueur %}
+          <table class="hist-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Description</th>
+                <th>Gravité</th>
+                <th>Début</th>
+                <th>Retour estimé</th>
+                <th>Retour effectif</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ind in indispos_joueur %}
+                {% set ic = indispo_color(ind.type, ind.gravite or '') %}
+                <tr>
+                  <td>
+                    <span style="font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:20px;
+                                 background:{{ ic }}18;color:{{ ic }};border:1px solid {{ ic }}44;">
+                      {{ ind.type }}
+                    </span>
+                  </td>
+                  <td style="color:var(--muted);font-style:italic;font-size:.8rem;">
+                    {{ ind.description or '—' }}
+                  </td>
+                  <td style="font-size:.8rem;color:var(--muted);">{{ ind.gravite or '—' }}</td>
+                  <td style="font-size:.8rem;">
+                    {% if ind.date_debut %}
+                      {{ ind.date_debut[8:10] }}/{{ ind.date_debut[5:7] }}/{{ ind.date_debut[:4] }}
+                    {% else %}—{% endif %}
+                  </td>
+                  <td style="font-size:.8rem;color:var(--muted);">
+                    {% if ind.date_retour_estimee %}
+                      {{ ind.date_retour_estimee[8:10] }}/{{ ind.date_retour_estimee[5:7] }}/{{ ind.date_retour_estimee[:4] }}
+                    {% else %}—{% endif %}
+                  </td>
+                  <td style="font-size:.8rem;color:#2ECC71;font-weight:600;">
+                    {% if ind.date_retour_effective %}
+                      {{ ind.date_retour_effective[8:10] }}/{{ ind.date_retour_effective[5:7] }}/{{ ind.date_retour_effective[:4] }}
+                    {% else %}—{% endif %}
+                  </td>
+                  <td>
+                    {% if ind.actif %}
+                      <span style="font-size:.68rem;font-weight:700;padding:1px 7px;border-radius:20px;
+                                   background:rgba(231,76,60,.1);color:#E74C3C;border:1px solid rgba(231,76,60,.2);">
+                        En cours
+                      </span>
+                    {% else %}
+                      <span style="font-size:.68rem;font-weight:700;padding:1px 7px;border-radius:20px;
+                                   background:rgba(46,204,113,.1);color:#2ECC71;border:1px solid rgba(46,204,113,.2);">
+                        Rétabli
+                      </span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="empty-sub">Aucune indisponibilité enregistrée pour ce joueur.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Historique matchs -->
+    <div class="pj-card">
+      <div class="pj-card-hdr">
+        <h2>Historique matchs</h2>
+        <span style="font-size:.72rem;color:var(--muted);">{{ matchs|length }} match{{ 'es' if matchs|length != 1 }}</span>
+      </div>
+      <div class="pj-card-body" style="padding:0;overflow-x:auto;">
+        {% if matchs %}
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Adversaire</th>
+              <th>Résultat</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in historique %}
+            {% set sn = h.match.score_nous %} {% set se = h.match.score_eux %}
+            {% set res_cls = 'res-v' if sn and se and sn > se else ('res-n' if sn and se and sn == se else 'res-d') %}
+            <tr>
+              <td style="color:var(--muted);font-size:.78rem;">{{ h.match.date_match or '—' }}</td>
+              <td>{{ h.match.adversaire or '—' }}</td>
+              <td class="{{ res_cls if sn is not none else '' }}">
+                {% if sn is not none and se is not none %}{{ sn }}–{{ se }}{% else %}—{% endif %}
+              </td>
+              <td>
+                {% if h.participation == 'Titulaire' %}
+                  <span style="font-size:.7rem;font-weight:700;background:rgba(0,85,164,.08);color:var(--accent);border:1px solid rgba(0,85,164,.15);border-radius:4px;padding:2px 7px;">Titulaire</span>
+                {% elif h.participation == 'Remplaçant' %}
+                  <span style="font-size:.7rem;font-weight:700;background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);border-radius:4px;padding:2px 7px;">Remplaçant</span>
+                {% elif h.participation == 'Absent' %}
+                  <span style="font-size:.7rem;color:var(--muted);">Absent</span>
+                {% else %}
+                  <span style="font-size:.7rem;color:var(--muted);">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="empty-sub" style="padding:1rem;">Aucun match enregistré.</p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+{% if can_edit %}
+function setNote(val) {
+  document.getElementById('note-val').value = val;
+  const stars = document.querySelectorAll('#stars-row .star');
+  stars.forEach((s, i) => { s.textContent = i < val ? '★' : '☆'; s.style.color = i < val ? '#f59e0b' : 'var(--muted)'; });
+  setTimeout(() => document.getElementById('note-form').submit(), 200);
+}
+// Init star colors
+document.addEventListener('DOMContentLoaded', () => {
+  const note = parseInt(document.getElementById('note-val')?.value || '0');
+  document.querySelectorAll('#stars-row .star').forEach((s, i) => {
+    s.style.color = i < note ? '#f59e0b' : 'var(--muted)';
+  });
+});
+{% endif %}
+</script>
+{% endblock %}

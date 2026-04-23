@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+{% set is_edit = analyse is not none %}
+{% block title %}{{ 'Fiche — ' + analyse.nom_adversaire if is_edit else 'Nouvelle analyse' }} — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/analyse-adversaire" style="font-size:.875rem;color:var(--muted);">← Analyses</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .aa-wrapper { flex:1; padding:0 2rem 3rem; max-width:900px; margin:0 auto; width:100%; }
+
+  /* ── Action bar ── */
+  .action-bar {
+    position:sticky; top:0; z-index:20;
+    background:var(--bg); border-bottom:1px solid var(--border);
+    padding:.75rem 0; margin-bottom:2rem;
+    display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;
+  }
+  .action-bar-left { display:flex; align-items:center; gap:.75rem; }
+  .page-title-sm { font-size:1rem; font-weight:700; }
+  .action-bar-right { display:flex; align-items:center; gap:.6rem; }
+
+  .autosave-bar { display:flex; align-items:center; gap:.4rem; font-size:.72rem; color:var(--muted); }
+  .as-dot { width:7px; height:7px; border-radius:50%; background:var(--border); flex-shrink:0; transition:background .3s; }
+  .as-dot.saved  { background:#2ECC71; }
+  .as-dot.saving { background:#f59e0b; animation:pulse .8s infinite; }
+  .as-dot.error  { background:#E74C3C; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .btn-save  { padding:.55rem 1.25rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:700; cursor:pointer; transition:background .15s; }
+  .btn-save:hover { background:var(--accent-h); }
+  .btn-print { padding:.55rem .9rem; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:var(--radius); font-size:.85rem; cursor:pointer; transition:all .15s; }
+  .btn-print:hover { border-color:var(--text); color:var(--text); }
+
+  /* ── Sections ── */
+  .section-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:1.25rem; overflow:hidden; }
+  .section-header { display:flex; align-items:center; gap:.65rem; padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
+  .section-icon  { font-size:1.15rem; line-height:1; }
+  .section-title { font-size:.9rem; font-weight:700; letter-spacing:-.01em; }
+  .section-body  { padding:1.25rem; display:flex; flex-direction:column; gap:1rem; }
+
+  .s1 .section-header { border-left:3px solid var(--accent); }
+  .s2 .section-header { border-left:3px solid #2ECC71; }
+  .s3 .section-header { border-left:3px solid #E74C3C; }
+  .s4 .section-header { border-left:3px solid #f59e0b; }
+  .s5 .section-header { border-left:3px solid #a78bfa; }
+
+  /* ── Form groups ── */
+  .form-group  { display:flex; flex-direction:column; gap:.4rem; }
+  label        { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .form-row    { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .form-row-3  { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem; }
+
+  /* ── Dynamic list ── */
+  .dyn-list { display:flex; flex-direction:column; gap:.5rem; }
+  .dyn-item {
+    display:grid; grid-template-columns:160px 1fr 28px;
+    gap:.5rem; align-items:center;
+    padding:.55rem .65rem; background:var(--bg);
+    border:1px solid var(--border); border-radius:6px;
+  }
+  .dyn-item-2 {
+    display:grid; grid-template-columns:1fr 28px;
+    gap:.5rem; align-items:center;
+    padding:.55rem .65rem; background:var(--bg);
+    border:1px solid var(--border); border-radius:6px;
+  }
+  .dyn-item-sit {
+    display:grid; grid-template-columns:1fr 130px 28px;
+    gap:.5rem; align-items:center;
+    padding:.55rem .65rem; background:var(--bg);
+    border:1px solid var(--border); border-radius:6px;
+  }
+  .dyn-item select, .dyn-item-2 select, .dyn-item-sit select { font-size:.8rem; padding:.35rem .5rem; }
+  .dyn-item input,  .dyn-item-2 input,  .dyn-item-sit input  { font-size:.8rem; padding:.35rem .5rem; }
+
+  .btn-rm {
+    width:28px; height:28px; padding:0; border:1px solid var(--border);
+    background:transparent; color:var(--muted); border-radius:6px;
+    cursor:pointer; font-size:.9rem; line-height:1; transition:all .15s; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .btn-rm:hover { border-color:var(--error); color:var(--error); background:rgba(231,76,60,.06); }
+
+  .btn-add-item {
+    display:flex; align-items:center; justify-content:center; gap:.4rem;
+    padding:.5rem 1rem; background:transparent;
+    border:1px dashed var(--border); border-radius:var(--radius);
+    color:var(--muted); font-size:.8rem; cursor:pointer;
+    transition:all .15s; width:100%;
+  }
+  .btn-add-item:hover { border-color:var(--accent); color:var(--accent); background:rgba(255,255,255,.05); }
+
+  /* ── Sub-section in plan de match ── */
+  .subsection { display:flex; flex-direction:column; gap:.6rem; }
+  .subsection-label { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); padding-bottom:.35rem; border-bottom:1px solid var(--border); }
+
+  /* ── Bilan ── */
+  .bilan-notice {
+    background:rgba(167,139,250,.07); border:1px solid rgba(167,139,250,.2);
+    border-radius:var(--radius); padding:.75rem 1rem;
+    font-size:.82rem; color:#a78bfa; line-height:1.5;
+  }
+
+  /* ── Print ── */
+  @media print {
+    .action-bar, .btn-save, .btn-print, .btn-rm, .btn-add-item,
+    nav, footer, .nav-bar, [class*="nav"] { display:none !important; }
+    .aa-wrapper { padding:0; max-width:100%; }
+    .section-card { break-inside:avoid; border:1px solid #ddd; margin-bottom:1rem; }
+    .section-header { background:#f8f8f8; }
+    body, .section-card, .section-body { background:#fff !important; color:#000 !important; }
+    .dyn-item, .dyn-item-2, .dyn-item-sit { border:1px solid #ddd; background:#fafafa; }
+    input, select, textarea { border:1px solid #ddd !important; background:#fff !important; color:#000 !important; }
+    .bilan-notice { border:1px solid #ccc; color:#555; background:#f5f0ff; }
+    .print-only { display:block !important; }
+  }
+  .print-only { display:none; }
+
+  @media (max-width:640px) {
+    .form-row, .form-row-3 { grid-template-columns:1fr; }
+    .dyn-item { grid-template-columns:1fr 28px; }
+    .dyn-item select:first-child { grid-column:1/2; }
+    .dyn-item-sit { grid-template-columns:1fr 28px; }
+    .dyn-item-sit select { grid-column:1/-1; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="aa-wrapper">
+
+  <!-- ── Action bar ── -->
+  <div class="action-bar">
+    <div class="action-bar-left">
+      <div class="page-title-sm">
+        {{ '🔍 ' + analyse.nom_adversaire if is_edit else '🔍 Nouvelle fiche' }}
+      </div>
+      {% if is_edit %}
+      <div class="autosave-bar">
+        <div class="as-dot" id="as-dot"></div>
+        <span id="as-label">En attente</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="action-bar-right">
+      <button type="button" class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+      <button type="button" class="btn-save" onclick="manualSave()">💾 Sauvegarder</button>
+    </div>
+  </div>
+
+  <!-- Print header (hidden on screen) -->
+  <div class="print-only" style="margin-bottom:1.5rem;">
+    <h1 style="font-size:1.4rem;font-weight:700;">Analyse adversaire — {{ analyse.nom_adversaire if is_edit else '' }}</h1>
+    <p style="color:#555;font-size:.85rem;">Saison {{ saison }} · Club : {{ nom_club }}</p>
+    <hr style="margin:.75rem 0;">
+  </div>
+
+  <form id="main-form"
+        method="POST"
+        action="{{ '/analyse-adversaire/' + analyse.id + '/sauvegarder' if is_edit else '/analyse-adversaire/nouveau' }}"
+        onsubmit="serializeAll()">
+
+    <input type="hidden" name="saison"           value="{{ saison }}">
+    <input type="hidden" name="points_forts"     id="pf-hidden">
+    <input type="hidden" name="points_faibles"   id="pfbl-hidden">
+    <input type="hidden" name="plan_match"       id="pm-hidden">
+    <input type="hidden" name="bilan_post_match" id="bpm-hidden">
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+      <div style="padding:.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:.875rem;
+           background:{{ 'rgba(46,204,113,.1)' if cat=='success' else 'rgba(231,76,60,.1)' }};
+           border:1px solid {{ 'rgba(46,204,113,.3)' if cat=='success' else 'rgba(231,76,60,.3)' }};
+           color:{{ '#2ECC71' if cat=='success' else '#E74C3C' }};">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- ══ SECTION 1 — Profil ══ -->
+    <div class="section-card s1">
+      <div class="section-header">
+        <span class="section-icon">🏷</span>
+        <span class="section-title">Profil de l'équipe</span>
+      </div>
+      <div class="section-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Équipe adverse *</label>
+            <input type="text" name="nom_adversaire" id="nom_adversaire"
+                   list="adv-list" required autocomplete="off"
+                   value="{{ analyse.nom_adversaire if is_edit else '' }}"
+                   placeholder="Nom de l'adversaire">
+            <datalist id="adv-list">
+              {% for a in adversaires %}<option value="{{ a }}">{% endfor %}
+            </datalist>
+          </div>
+          {% if show_formation %}
+          <div class="form-group">
+            <label>Formation habituelle</label>
+            <input type="text" name="formation_adverse" id="formation_adverse"
+                   value="{{ analyse.formation_adverse or '' if is_edit else '' }}"
+                   placeholder="ex : 4-3-3, 5-4-1…">
+          </div>
+          {% endif %}
+        </div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Style de jeu</label>
+            <select name="style_jeu" id="style_jeu">
+              <option value="">— Choisir —</option>
+              {% if sport == 'Rugby' %}
+                {% set styles = ['Jeu direct','Jeu de possession','Jeu au pied','Jeu physique','Jeu en continuité'] %}
+              {% elif sport == 'Basket' %}
+                {% set styles = ['Jeu rapide','Jeu de possession','Contre-attaque','Jeu intérieur','Jeu physique'] %}
+              {% elif sport == 'Volley-ball' %}
+                {% set styles = ['Jeu de puissance','Jeu en finesse','Jeu rapide','Jeu défensif'] %}
+              {% elif sport == 'Handball' %}
+                {% set styles = ['Jeu direct','Jeu de possession','Contre-attaque','Jeu en pivot','Jeu physique'] %}
+              {% elif sport == 'Football américain' %}
+                {% set styles = ['Jeu aérien','Jeu au sol','Jeu mixte','Défense agressive','Jeu conservateur'] %}
+              {% elif sport == 'Water-polo' %}
+                {% set styles = ['Jeu direct','Contre-attaque','Jeu physique','Jeu en supériorité','Jeu posé'] %}
+              {% elif sport == 'Hockey sur glace' %}
+                {% set styles = ['Jeu direct','Jeu de possession','Contre-attaque','Jeu physique','Forechecking'] %}
+              {% else %}{# Football + défaut #}
+                {% set styles = ['Jeu direct','Jeu de possession','Contre-attaque','Jeu physique','Jeu au pied'] %}
+              {% endif %}
+              {% for s in styles %}
+              <option value="{{ s }}" {{ 'selected' if is_edit and analyse.style_jeu == s }}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Niveau estimé</label>
+            <select name="niveau_estime" id="niveau_estime">
+              <option value="">— Choisir —</option>
+              {% for n in ['Inférieur','Similaire','Supérieur'] %}
+              <option value="{{ n }}" {{ 'selected' if is_edit and analyse.niveau_estime == n }}>{{ n }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Match lié (optionnel)</label>
+            <input type="text" name="match_id" id="match_id"
+                   value="{{ analyse.match_id or '' if is_edit else '' }}"
+                   placeholder="ID du match dans /matchs">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes générales</label>
+          <textarea name="notes_generales" id="notes_generales" rows="3"
+                    placeholder="Observations générales sur l'équipe, l'entraîneur, le contexte…">{{ analyse.notes_generales or '' if is_edit else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SECTION 2 — Points forts ══ -->
+    <div class="section-card s2">
+      <div class="section-header">
+        <span class="section-icon">💪</span>
+        <span class="section-title">Points forts de l'adversaire</span>
+      </div>
+      <div class="section-body">
+        <div class="dyn-list" id="pf-list"></div>
+        <button type="button" class="btn-add-item" onclick="pfAdd()">+ Ajouter un point fort</button>
+      </div>
+    </div>
+
+    <!-- ══ SECTION 3 — Points faibles ══ -->
+    <div class="section-card s3">
+      <div class="section-header">
+        <span class="section-icon">🎯</span>
+        <span class="section-title">Points faibles à exploiter</span>
+      </div>
+      <div class="section-body">
+        <div class="dyn-list" id="pfbl-list"></div>
+        <button type="button" class="btn-add-item" onclick="pfblAdd()">+ Ajouter un point faible</button>
+      </div>
+    </div>
+
+    <!-- ══ SECTION 4 — Plan de match ══ -->
+    <div class="section-card s4">
+      <div class="section-header">
+        <span class="section-icon">📋</span>
+        <span class="section-title">Plan de match</span>
+      </div>
+      <div class="section-body">
+        <div class="subsection">
+          <div class="subsection-label">Ce qu'on doit faire</div>
+          <div class="dyn-list" id="faire-list"></div>
+          <button type="button" class="btn-add-item" onclick="faireAdd()">+ Ajouter une action</button>
+        </div>
+        <div class="subsection">
+          <div class="subsection-label">Ce qu'on doit éviter</div>
+          <div class="dyn-list" id="eviter-list"></div>
+          <button type="button" class="btn-add-item" onclick="eviterAdd()">+ Ajouter un comportement à proscrire</button>
+        </div>
+        <div class="subsection">
+          <div class="subsection-label">Situations clés à travailler à l'entraînement</div>
+          <div class="dyn-list" id="sit-list"></div>
+          <button type="button" class="btn-add-item" onclick="sitAdd()">+ Ajouter une situation</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SECTION 5 — Bilan post-match ══ -->
+    <div class="section-card s5">
+      <div class="section-header">
+        <span class="section-icon">📊</span>
+        <span class="section-title">Bilan post-match</span>
+      </div>
+      <div class="section-body">
+        <div class="bilan-notice">
+          À remplir après le match contre cet adversaire. Ces notes serviront à préparer la prochaine confrontation.
+        </div>
+        <div class="form-group">
+          <label>Ce qui a fonctionné</label>
+          <textarea name="bilan_fonctionne" id="bilan_fonctionne" rows="3"
+                    placeholder="Points positifs, ce qui s'est bien passé sur le terrain…">{{ (analyse.bilan_post_match or {}).get('fonctionne','') if is_edit else '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Ce qui n'a pas fonctionné</label>
+          <textarea name="bilan_pas_fonctionne" id="bilan_pas_fonctionne" rows="3"
+                    placeholder="Difficultés rencontrées, erreurs à corriger…">{{ (analyse.bilan_post_match or {}).get('pas_fonctionne','') if is_edit else '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Ajustements pour le prochain match contre eux</label>
+          <textarea name="bilan_ajustements" id="bilan_ajustements" rows="3"
+                    placeholder="Ce qu'on ferait différemment la prochaine fois…">{{ (analyse.bilan_post_match or {}).get('ajustements','') if is_edit else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom save button -->
+    <div style="display:flex;justify-content:flex-end;gap:.6rem;margin-top:1.5rem;">
+      <a href="/analyse-adversaire" style="padding:.65rem 1rem;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);font-size:.875rem;text-decoration:none;font-weight:500;">Retour à la liste</a>
+      <button type="button" class="btn-save" onclick="manualSave()">💾 Sauvegarder</button>
+    </div>
+
+  </form>
+</div>
+
+<script>
+/* ── Helpers ── */
+const SPORT = {{ sport | tojson }};
+const CATS_BY_SPORT = {
+  'Rugby':              ['Attaque','Défense','Mêlées / Touches','Physique','Mental','Tactique'],
+  'Basket':             ['Attaque','Défense','Rebond','Physique','Mental','Tactique'],
+  'Volley-ball':        ['Attaque','Défense','Service','Réception','Mental','Tactique'],
+  'Handball':           ['Attaque','Défense','Phases arrêtées','Physique','Mental','Tactique'],
+  'Football américain': ['Attaque','Défense','Phases spéciales','Physique','Mental','Tactique'],
+  'Water-polo':         ['Attaque','Défense','Physique','Mental','Tactique'],
+  'Hockey sur glace':   ['Attaque','Défense','Physique','Mental','Tactique'],
+};
+const CATS = CATS_BY_SPORT[SPORT] || ['Attaque','Défense','Phases arrêtées','Physique','Mental','Tactique'];
+const PRIOS = ['Haute','Moyenne','Faible'];
+const IS_EDIT = {{ is_edit | tojson }};
+const ANALYSE_ID = {{ ('"' + analyse.id + '"') | safe if is_edit else 'null' }};
+
+function h(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function catOpts(sel) {
+  return CATS.map(c => `<option value="${h(c)}" ${sel===c?'selected':''}>${h(c)}</option>`).join('');
+}
+function prioOpts(sel) {
+  return PRIOS.map(p => `<option value="${h(p)}" ${sel===p?'selected':''}>${h(p)}</option>`).join('');
+}
+
+/* ── Points forts ── */
+let pfItems = [];
+function pfAdd() { pfItems.push({categorie:'Attaque', description:''}); pfRender(); }
+function pfRm(i) { pfItems.splice(i,1); pfRender(); }
+function pfRender() {
+  document.getElementById('pf-list').innerHTML = pfItems.map((it,i) => `
+    <div class="dyn-item">
+      <select onchange="pfItems[${i}].categorie=this.value">${catOpts(it.categorie)}</select>
+      <input type="text" placeholder="Description du point fort" value="${h(it.description)}"
+             oninput="pfItems[${i}].description=this.value">
+      <button type="button" class="btn-rm" onclick="pfRm(${i})">×</button>
+    </div>`).join('');
+}
+function pfSerialize() { document.getElementById('pf-hidden').value = JSON.stringify(pfItems); }
+
+/* ── Points faibles ── */
+let pfblItems = [];
+function pfblAdd() { pfblItems.push({categorie:'Défense', description:''}); pfblRender(); }
+function pfblRm(i) { pfblItems.splice(i,1); pfblRender(); }
+function pfblRender() {
+  document.getElementById('pfbl-list').innerHTML = pfblItems.map((it,i) => `
+    <div class="dyn-item">
+      <select onchange="pfblItems[${i}].categorie=this.value">${catOpts(it.categorie)}</select>
+      <input type="text" placeholder="Description du point faible" value="${h(it.description)}"
+             oninput="pfblItems[${i}].description=this.value">
+      <button type="button" class="btn-rm" onclick="pfblRm(${i})">×</button>
+    </div>`).join('');
+}
+function pfblSerialize() { document.getElementById('pfbl-hidden').value = JSON.stringify(pfblItems); }
+
+/* ── Plan faire ── */
+let faireItems = [];
+function faireAdd() { faireItems.push(''); faireRender(); }
+function faireRm(i) { faireItems.splice(i,1); faireRender(); }
+function faireRender() {
+  document.getElementById('faire-list').innerHTML = faireItems.map((it,i) => `
+    <div class="dyn-item-2">
+      <input type="text" placeholder="Action à mettre en place" value="${h(it)}"
+             oninput="faireItems[${i}]=this.value">
+      <button type="button" class="btn-rm" onclick="faireRm(${i})">×</button>
+    </div>`).join('');
+}
+
+/* ── Plan éviter ── */
+let eviterItems = [];
+function eviterAdd() { eviterItems.push(''); eviterRender(); }
+function eviterRm(i) { eviterItems.splice(i,1); eviterRender(); }
+function eviterRender() {
+  document.getElementById('eviter-list').innerHTML = eviterItems.map((it,i) => `
+    <div class="dyn-item-2">
+      <input type="text" placeholder="Comportement à proscrire" value="${h(it)}"
+             oninput="eviterItems[${i}]=this.value">
+      <button type="button" class="btn-rm" onclick="eviterRm(${i})">×</button>
+    </div>`).join('');
+}
+
+/* ── Plan situations ── */
+let sitItems = [];
+function sitAdd() { sitItems.push({description:'', priorite:'Moyenne'}); sitRender(); }
+function sitRm(i) { sitItems.splice(i,1); sitRender(); }
+function sitRender() {
+  document.getElementById('sit-list').innerHTML = sitItems.map((it,i) => `
+    <div class="dyn-item-sit">
+      <input type="text" placeholder="Situation à travailler" value="${h(it.description)}"
+             oninput="sitItems[${i}].description=this.value">
+      <select onchange="sitItems[${i}].priorite=this.value">${prioOpts(it.priorite)}</select>
+      <button type="button" class="btn-rm" onclick="sitRm(${i})">×</button>
+    </div>`).join('');
+}
+
+/* ── Serialize all ── */
+function serializeAll() {
+  pfSerialize();
+  pfblSerialize();
+  const pm = { faire: faireItems, eviter: eviterItems, situations: sitItems };
+  document.getElementById('pm-hidden').value = JSON.stringify(pm);
+  const bpm = {
+    fonctionne:      document.getElementById('bilan_fonctionne').value,
+    pas_fonctionne:  document.getElementById('bilan_pas_fonctionne').value,
+    ajustements:     document.getElementById('bilan_ajustements').value,
+  };
+  document.getElementById('bpm-hidden').value = JSON.stringify(bpm);
+  return true;
+}
+
+/* ── Collect all data for autosave ── */
+function collectData() {
+  return {
+    nom_adversaire:    document.getElementById('nom_adversaire').value,
+    saison:            document.querySelector('[name="saison"]').value,
+    style_jeu:         document.getElementById('style_jeu').value,
+    formation_adverse: document.getElementById('formation_adverse')?.value || null,
+    niveau_estime:     document.getElementById('niveau_estime').value,
+    notes_generales:   document.getElementById('notes_generales').value,
+    match_id:          document.getElementById('match_id').value || null,
+    points_forts:      pfItems,
+    points_faibles:    pfblItems,
+    plan_match:        { faire: faireItems, eviter: eviterItems, situations: sitItems },
+    bilan_post_match: {
+      fonctionne:     document.getElementById('bilan_fonctionne').value,
+      pas_fonctionne: document.getElementById('bilan_pas_fonctionne').value,
+      ajustements:    document.getElementById('bilan_ajustements').value,
+    },
+  };
+}
+
+/* ── Manual save (submit form) ── */
+function manualSave() {
+  serializeAll();
+  document.getElementById('main-form').submit();
+}
+
+/* ── Autosave ── */
+let lastSaved = null;
+function setDot(state, label) {
+  const dot = document.getElementById('as-dot');
+  const lbl = document.getElementById('as-label');
+  if (!dot) return;
+  dot.className = 'as-dot ' + state;
+  if (lbl) lbl.textContent = label;
+}
+function autoSave() {
+  if (!IS_EDIT || !ANALYSE_ID) return;
+  setDot('saving', 'Sauvegarde…');
+  fetch(`/analyse-adversaire/${ANALYSE_ID}/sauvegarder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Autosave': 'true' },
+    body: JSON.stringify(collectData())
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      lastSaved = new Date();
+      setDot('saved', 'Sauvegardé à ' + lastSaved.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
+    } else {
+      setDot('error', 'Erreur de sauvegarde');
+    }
+  })
+  .catch(() => setDot('error', 'Erreur réseau'));
+}
+
+/* ── Init ── */
+document.addEventListener('DOMContentLoaded', () => {
+  // Load initial data
+  const pf   = {{ (analyse.points_forts or []) | tojson if is_edit else '[]' }};
+  const pfbl = {{ (analyse.points_faibles or []) | tojson if is_edit else '[]' }};
+  const pm   = {{ (analyse.plan_match or {}) | tojson if is_edit else '{}' }};
+
+  pfItems   = Array.isArray(pf)   ? pf   : [];
+  pfblItems = Array.isArray(pfbl) ? pfbl : [];
+  faireItems  = Array.isArray(pm.faire)      ? pm.faire      : [];
+  eviterItems = Array.isArray(pm.eviter)     ? pm.eviter     : [];
+  sitItems    = Array.isArray(pm.situations) ? pm.situations : [];
+
+  pfRender(); pfblRender(); faireRender(); eviterRender(); sitRender();
+
+  // Start autosave (edit mode only)
+  if (IS_EDIT) {
+    setDot('saved', 'Sauvegarde auto active');
+    setInterval(autoSave, 30000);
+  }
+});
+</script>
+{% endblock %}

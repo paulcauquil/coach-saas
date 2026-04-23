@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Séances — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .page-wrapper { flex:1; padding:2.5rem 2rem; max-width:960px; margin:0 auto; width:100%; }
+  .page-header  { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .page-title   { font-size:1.4rem; font-weight:700; letter-spacing:-.02em; }
+  .page-sub     { font-size:.85rem; color:var(--muted); margin-top:.25rem; }
+  .btn-primary  { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; text-decoration:none; transition:background .15s; }
+  .btn-primary:hover { background:var(--accent-h); }
+
+  /* Filters */
+  .filter-bar { display:flex; gap:.4rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .fbtn { padding:.35rem .8rem; border:1px solid var(--border); border-radius:20px; background:transparent; color:var(--muted); font-size:.75rem; font-weight:600; cursor:pointer; transition:all .15s; }
+  .fbtn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .fbtn:hover:not(.active) { border-color:var(--accent); color:var(--accent); }
+
+  /* Cards */
+  .seances-list { display:flex; flex-direction:column; gap:.6rem; }
+  .seance-card  { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.25rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap; text-decoration:none; color:inherit; transition:border-color .15s; }
+  .seance-card:hover { border-color:rgba(255,255,255,.4); }
+  .sc-date { display:flex; flex-direction:column; align-items:center; min-width:48px; }
+  .sc-day   { font-size:1.4rem; font-weight:700; line-height:1; }
+  .sc-month { font-size:.62rem; text-transform:uppercase; color:var(--muted); font-weight:600; letter-spacing:.05em; }
+  .sc-body  { flex:1; min-width:0; }
+  .sc-obj   { font-size:.88rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sc-obj.empty { color:var(--muted); font-style:italic; font-weight:400; }
+  .sc-meta  { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.2rem; font-size:.74rem; color:var(--muted); }
+  .sc-right { display:flex; flex-direction:column; align-items:flex-end; gap:.4rem; flex-shrink:0; }
+
+  .badge-statut { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:20px; }
+  .s-planifiee  { background:rgba(0,85,164,.07); color:var(--accent); border:1px solid rgba(0,85,164,.12); }
+  .s-realisee   { background:rgba(46,204,113,.1);  color:#2ECC71; border:1px solid rgba(46,204,113,.25); }
+  .s-annulee    { background:rgba(107,114,128,.1); color:var(--muted); border:1px solid var(--border); }
+  .badge-analyse { font-size:.67rem; font-weight:600; padding:2px 7px; border-radius:20px; background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.25); }
+
+  .btn-del-sm { padding:.3rem .6rem; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--muted); font-size:.72rem; cursor:pointer; transition:all .15s; }
+  .btn-del-sm:hover { border-color:var(--error); color:var(--error); background:rgba(231,76,60,.06); }
+
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--muted); }
+  .empty-state .ei { font-size:3rem; margin-bottom:.75rem; }
+  .empty-state p { font-size:.88rem; margin-bottom:1.25rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">🏋️ Séances</h1>
+      <p class="page-sub">Préparez et suivez vos séances d'entraînement.</p>
+    </div>
+    {% if user_role != 'joueur' %}<a href="/seances/nouveau" class="btn-primary">+ Créer une séance</a>{% endif %}
+  </div>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+    <div style="padding:.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:.875rem;
+         background:{{ 'rgba(46,204,113,.1)' if cat=='success' else 'rgba(231,76,60,.1)' }};
+         border:1px solid {{ 'rgba(46,204,113,.3)' if cat=='success' else 'rgba(231,76,60,.3)' }};
+         color:{{ '#2ECC71' if cat=='success' else '#E74C3C' }};">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="filter-bar">
+    <button class="fbtn active" onclick="filterStatut('')">Toutes</button>
+    <button class="fbtn" onclick="filterStatut('Planifiée')">Planifiées</button>
+    <button class="fbtn" onclick="filterStatut('Réalisée')">Réalisées</button>
+    <button class="fbtn" onclick="filterStatut('Annulée')">Annulées</button>
+  </div>
+
+  {% if seances %}
+  <div class="seances-list" id="seances-list">
+    {% for s in seances %}
+    {% set parts = s.date_seance.split('-') %}
+    {% set mois = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][parts[1]|int - 1] %}
+    {% set sc = 's-planifiee' if s.statut == 'Planifiée' else ('s-realisee' if s.statut == 'Réalisée' else 's-annulee') %}
+    <div class="seance-card" data-statut="{{ s.statut or 'Planifiée' }}">
+      <a href="/seances/{{ s.id }}" style="display:contents;color:inherit;text-decoration:none;">
+        <div class="sc-date">
+          <div class="sc-day">{{ parts[2] }}</div>
+          <div class="sc-month">{{ mois }}</div>
+        </div>
+        <div class="sc-body">
+          <div class="sc-obj {{ '' if s.theme else 'empty' }}">{{ s.theme or 'Séance sans thème défini' }}</div>
+          <div class="sc-meta">
+            {% if s.heure_debut %}<span>🕐 {{ s.heure_debut[:5] }}</span>{% endif %}
+            {% if s.duree_minutes %}<span>⏱ {{ s.duree_minutes }} min</span>{% endif %}
+          </div>
+        </div>
+        <div class="sc-right">
+          <span class="badge-statut {{ sc }}">{{ s.statut or 'Planifiée' }}</span>
+          {% if s.analyse_adversaire_id %}
+          <span class="badge-analyse">🔍 Analyse liée</span>
+          {% endif %}
+        </div>
+      </a>
+      {% if user_role != 'joueur' %}
+      <form method="POST" action="/seances/{{ s.id }}/supprimer" style="margin:0;"
+            onsubmit="return confirm('Supprimer cette séance ?')">
+        <button type="submit" class="btn-del-sm">Supprimer</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="ei">🏋️</div>
+    <p>Aucune séance créée.<br>Commencez par planifier votre prochaine séance.</p>
+    {% if user_role != 'joueur' %}<a href="/seances/nouveau" class="btn-primary">+ Créer une séance</a>{% endif %}
+  </div>
+  {% endif %}
+
+</div>
+<script>
+function filterStatut(s) {
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.seance-card').forEach(card => {
+    card.style.display = (!s || card.dataset.statut === s) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

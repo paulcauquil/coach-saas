@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+{% set is_edit = seance is not none %}
+{% block title %}{{ 'Modifier la séance' if is_edit else 'Nouvelle séance' }} — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/seances" style="font-size:.875rem;color:var(--muted);">← Séances</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .sf-wrapper { flex:1; padding:0 2rem 3rem; max-width:860px; margin:0 auto; width:100%; }
+
+  /* Action bar */
+  .action-bar { position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:1px solid var(--border); padding:.75rem 0; margin-bottom:2rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .ab-left  { display:flex; align-items:center; gap:.75rem; }
+  .ab-title { font-size:1rem; font-weight:700; }
+  .ab-right { display:flex; gap:.5rem; }
+  .btn-save  { padding:.55rem 1.25rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:700; cursor:pointer; transition:background .15s; }
+  .btn-save:hover { background:var(--accent-h); }
+  .btn-print { padding:.55rem .9rem; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:var(--radius); font-size:.85rem; cursor:pointer; transition:all .15s; }
+  .btn-print:hover { border-color:var(--text); color:var(--text); }
+
+  /* Sections */
+  .section-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:1.25rem; overflow:hidden; }
+  .section-hdr  { display:flex; align-items:center; gap:.6rem; padding:.9rem 1.25rem; border-bottom:1px solid var(--border); }
+  .section-hdr span { font-size:.9rem; font-weight:700; }
+  .section-body { padding:1.25rem; display:flex; flex-direction:column; gap:1rem; }
+  .s1 .section-hdr { border-left:3px solid var(--accent); }
+  .s2 .section-hdr { border-left:3px solid #f59e0b; }
+  .s3 .section-hdr { border-left:3px solid #2ECC71; }
+
+  .form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .form-row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.75rem; }
+  .form-group { display:flex; flex-direction:column; gap:.4rem; }
+  label { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+
+  /* Analyse liée notice */
+  .analyse-notice { background:rgba(245,158,11,.07); border:1px solid rgba(245,158,11,.2); border-radius:var(--radius); padding:.85rem 1rem; }
+  .an-title { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#f59e0b; margin-bottom:.5rem; }
+  .an-point { font-size:.8rem; color:var(--text); padding:.2rem 0; display:flex; gap:.5rem; }
+  .an-cat   { font-size:.68rem; background:rgba(245,158,11,.12); color:#f59e0b; border-radius:4px; padding:1px 6px; font-weight:600; flex-shrink:0; }
+
+  /* Exercices */
+  .exo-list { display:flex; flex-direction:column; gap:.65rem; }
+  .exo-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:.85rem 1rem; }
+  .exo-header { display:flex; align-items:center; gap:.5rem; margin-bottom:.65rem; }
+  .exo-num  { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:.7rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .exo-name-inp { flex:1; font-weight:600; font-size:.88rem; }
+  .btn-rm   { width:26px; height:26px; border:1px solid var(--border); background:transparent; color:var(--muted); border-radius:6px; cursor:pointer; font-size:.9rem; transition:all .15s; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .btn-rm:hover { border-color:var(--error); color:var(--error); }
+  .exo-fields { display:grid; grid-template-columns:80px 100px 1fr; gap:.6rem; align-items:start; }
+  .exo-desc { margin-top:.5rem; }
+  .intensite-row { display:flex; gap:.35rem; flex-wrap:wrap; margin-top:.5rem; }
+  .int-pill { padding:.25rem .65rem; border:1px solid var(--border); border-radius:20px; font-size:.7rem; font-weight:600; cursor:pointer; color:var(--muted); transition:all .12s; user-select:none; }
+  .int-pill.sel-Faible  { background:rgba(46,204,113,.1);  color:#2ECC71; border-color:rgba(46,204,113,.3); }
+  .int-pill.sel-Moyenne { background:rgba(245,158,11,.1); color:#f59e0b; border-color:rgba(245,158,11,.3); }
+  .int-pill.sel-Haute   { background:rgba(0,85,164,.07); color:#f97316; border-color:rgba(0,85,164,.18); }
+  .int-pill.sel-Maximum { background:rgba(231,76,60,.12); color:#E74C3C; border-color:rgba(231,76,60,.3); }
+  .int-pill:hover:not([class*="sel-"]) { border-color:var(--accent); color:var(--accent); }
+
+  .btn-add-exo { display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.6rem; background:transparent; border:1px dashed var(--border); border-radius:var(--radius); color:var(--muted); font-size:.82rem; cursor:pointer; transition:all .15s; width:100%; }
+  .btn-add-exo:hover { border-color:var(--accent); color:var(--accent); background:rgba(255,255,255,.04); }
+
+  /* Durée auto */
+  .duree-auto { font-size:.72rem; color:var(--muted); margin-top:.2rem; }
+  .duree-auto span { color:var(--accent); font-weight:600; }
+
+  /* Statut pills */
+  .statut-row { display:flex; gap:.4rem; }
+  .stat-pill  { padding:.35rem .85rem; border:1px solid var(--border); border-radius:20px; font-size:.78rem; font-weight:600; cursor:pointer; color:var(--muted); transition:all .12s; user-select:none; }
+  .stat-pill.sel { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+  .stat-pill.sel-Planifiée  { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+  .stat-pill.sel-Réalisée   { border-color:#2ECC71; color:#2ECC71; background:rgba(46,204,113,.08); }
+  .stat-pill.sel-Annulée    { border-color:var(--muted); color:var(--muted); background:rgba(107,114,128,.08); }
+
+  /* Print */
+  @media print {
+    .action-bar, .btn-save, .btn-print, .btn-rm, .btn-add-exo, nav, .nav-bar { display:none !important; }
+    .sf-wrapper { padding:0; max-width:100%; }
+    .section-card { break-inside:avoid; border:1px solid #ddd; }
+    body, .section-card, .section-body, .exo-card, .sf-wrapper { background:#fff !important; color:#000 !important; }
+    input, select, textarea { border:1px solid #ccc !important; background:#fff !important; color:#000 !important; }
+    .print-header { display:block !important; }
+    .intensite-row .int-pill { border:1px solid #ccc; }
+    .int-pill[class*="sel-"] { font-weight:700; }
+  }
+  .print-header { display:none; margin-bottom:1.5rem; }
+
+  @media(max-width:640px) {
+    .form-row2, .form-row3 { grid-template-columns:1fr; }
+    .exo-fields { grid-template-columns:1fr 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sf-wrapper">
+
+  <!-- Print header -->
+  <div class="print-header">
+    <h1 style="font-size:1.3rem;font-weight:700;">Séance d'entraînement</h1>
+    {% if is_edit and seance.date_seance %}
+    <p style="color:#555;font-size:.85rem;">{{ seance.date_seance }} · {{ nom_club }}</p>
+    {% endif %}
+    <hr style="margin:.75rem 0;">
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar">
+    <div class="ab-left">
+      <div class="ab-title">{{ '✏️ Modifier la séance' if is_edit else '🏋️ Nouvelle séance' }}</div>
+    </div>
+    <div class="ab-right">
+      <button type="button" class="btn-print" onclick="window.print()">🖨 Imprimer</button>
+      <button type="button" class="btn-save" onclick="submitForm()">💾 Sauvegarder</button>
+    </div>
+  </div>
+
+  <form id="main-form"
+        method="POST"
+        action="{{ '/seances/' + seance.id + '/modifier' if is_edit else '/seances/creer' }}"
+        onsubmit="serializeExercices()">
+    <input type="hidden" name="exercices" id="exercices-hidden">
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+      <div style="padding:.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:.875rem;
+           background:{{ 'rgba(46,204,113,.1)' if cat=='success' else 'rgba(231,76,60,.1)' }};
+           border:1px solid {{ 'rgba(46,204,113,.3)' if cat=='success' else 'rgba(231,76,60,.3)' }};
+           color:{{ '#2ECC71' if cat=='success' else '#E74C3C' }};">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- Section 1 : Infos générales -->
+    <div class="section-card s1">
+      <div class="section-hdr"><span>📋 Informations générales</span></div>
+      <div class="section-body">
+        <div class="form-row3">
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" name="date_seance" required
+                   value="{{ seance.date_seance if is_edit else today }}">
+          </div>
+          <div class="form-group">
+            <label>Heure de début</label>
+            <input type="time" name="heure_debut"
+                   value="{{ (seance.heure_debut or '')[:5] if is_edit else '' }}">
+          </div>
+          <div class="form-group">
+            <label>Durée totale (min)</label>
+            <input type="number" name="duree_minutes" id="duree-input" min="0" step="5"
+                   value="{{ seance.duree_minutes or '' if is_edit else '' }}"
+                   placeholder="Auto">
+            <div class="duree-auto">Calculée : <span id="duree-calc">0</span> min</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Objectif principal</label>
+          <input type="text" name="objectif"
+                 value="{{ seance.theme or '' if is_edit else '' }}"
+                 placeholder="ex : Travailler la défense sur phases arrêtées…">
+        </div>
+        <div class="form-row2">
+          <div class="form-group">
+            <label>Lien analyse adversaire</label>
+            <select name="analyse_adversaire_id" id="sel-analyse" onchange="updateAnalyseNotice()">
+              <option value="">— Aucune —</option>
+              {% for a in analyses %}
+              <option value="{{ a.id }}"
+                {{ 'selected' if is_edit and seance.analyse_adversaire_id == a.id }}>
+                {{ a.nom_adversaire }} ({{ a.saison }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Statut</label>
+            <div class="statut-row">
+              {% set cur_statut = seance.statut if is_edit else 'Planifiée' %}
+              {% for st in ['Planifiée','Réalisée','Annulée'] %}
+              <div class="stat-pill {{ 'sel-' + st if cur_statut == st else '' }}"
+                   data-val="{{ st }}" onclick="setStatut(this)">{{ st }}</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="statut" id="statut-hidden"
+                   value="{{ seance.statut if is_edit else 'Planifiée' }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rappel points faibles adversaire (si analyse liée) -->
+    {% if analyse_liee and analyse_liee.points_faibles %}
+    <div class="analyse-notice" id="analyse-notice">
+      <div class="an-title">Points faibles de {{ analyse_liee.nom_adversaire }} à exploiter</div>
+      {% for pf in analyse_liee.points_faibles %}
+      <div class="an-point">
+        <span class="an-cat">{{ pf.categorie }}</span>
+        <span>{{ pf.description }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="analyse-notice" id="analyse-notice" style="display:none;">
+      <div class="an-title" id="an-title">Points faibles à exploiter</div>
+      <div id="an-body"></div>
+    </div>
+    {% endif %}
+
+    <!-- Section 2 : Exercices -->
+    <div class="section-card s2">
+      <div class="section-hdr"><span>⚽ Programme des exercices</span></div>
+      <div class="section-body">
+        <div class="exo-list" id="exo-list"></div>
+        <button type="button" class="btn-add-exo" onclick="addExo()">+ Ajouter un exercice</button>
+      </div>
+    </div>
+
+    <!-- Section 3 : Notes -->
+    <div class="section-card s3">
+      <div class="section-hdr"><span>📝 Notes de séance</span></div>
+      <div class="section-body">
+        <div class="form-group">
+          <label>Notes générales</label>
+          <textarea name="notes" rows="4"
+                    placeholder="Observations, points à retenir, retours des joueurs…">{{ seance.notes or '' if is_edit else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:.6rem;margin-top:.5rem;">
+      <a href="/seances" style="padding:.65rem 1rem;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius);font-size:.875rem;text-decoration:none;">Retour</a>
+      <button type="button" class="btn-save" onclick="submitForm()">💾 Sauvegarder</button>
+    </div>
+  </form>
+</div>
+
+<script>
+const ANALYSES_DATA = {{ analyses | tojson }};
+const IS_EDIT = {{ is_edit | tojson }};
+
+/* ── Exercices ── */
+let exoItems = IS_EDIT ? ({{ (seance.exercices or []) | tojson if is_edit else '[]' }}) : [];
+const INTENSITES = ['Faible','Moyenne','Haute','Maximum'];
+
+function h(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderExos() {
+  const list = document.getElementById('exo-list');
+  if (!list) return;
+  list.innerHTML = exoItems.map((ex, i) => `
+    <div class="exo-card">
+      <div class="exo-header">
+        <div class="exo-num">${i+1}</div>
+        <input class="exo-name-inp" type="text" placeholder="Nom de l'exercice"
+               value="${h(ex.nom)}" oninput="exoItems[${i}].nom=this.value">
+        <button type="button" class="btn-rm" onclick="removeExo(${i})">×</button>
+      </div>
+      <div class="exo-fields">
+        <div class="form-group">
+          <label>Durée (min)</label>
+          <input type="number" min="1" value="${h(ex.duree_min||'')}"
+                 oninput="exoItems[${i}].duree_min=parseInt(this.value)||0;calcDuree()">
+        </div>
+        <div class="form-group">
+          <label>Joueurs</label>
+          <input type="number" min="1" value="${h(ex.nb_joueurs||'')}" placeholder="Tous"
+                 oninput="exoItems[${i}].nb_joueurs=this.value">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" value="${h(ex.description||'')}" placeholder="Déroulement de l'exercice…"
+                 oninput="exoItems[${i}].description=this.value">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block;margin-bottom:.35rem;">Intensité</label>
+        <div class="intensite-row">
+          ${INTENSITES.map(iv => `
+            <div class="int-pill ${ex.intensite===iv?'sel-'+iv:''}"
+                 onclick="setInt(${i},'${iv}',this)">${iv}</div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+  calcDuree();
+}
+
+function addExo() {
+  exoItems.push({ nom:'', duree_min:0, nb_joueurs:'', description:'', intensite:'Moyenne' });
+  renderExos();
+  document.getElementById('exo-list').lastElementChild?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function removeExo(i) { exoItems.splice(i,1); renderExos(); }
+
+function setInt(i, val, el) {
+  exoItems[i].intensite = val;
+  el.closest('.intensite-row').querySelectorAll('.int-pill').forEach(p => {
+    p.className = 'int-pill' + (p.textContent.trim()===val ? ' sel-'+val : '');
+  });
+}
+
+function calcDuree() {
+  const total = exoItems.reduce((s,e) => s + (parseInt(e.duree_min)||0), 0);
+  const el = document.getElementById('duree-calc');
+  if (el) el.textContent = total;
+}
+
+function serializeExercices() {
+  document.getElementById('exercices-hidden').value = JSON.stringify(exoItems);
+  return true;
+}
+
+function submitForm() {
+  serializeExercices();
+  document.getElementById('main-form').submit();
+}
+
+/* ── Statut pills ── */
+function setStatut(el) {
+  document.querySelectorAll('.stat-pill').forEach(p => {
+    p.className = 'stat-pill';
+    if (p.dataset.val === el.dataset.val) p.className = 'stat-pill sel-' + el.dataset.val;
+  });
+  document.getElementById('statut-hidden').value = el.dataset.val;
+}
+
+/* ── Analyse liée ── */
+function updateAnalyseNotice() {
+  const sel = document.getElementById('sel-analyse');
+  const notice = document.getElementById('analyse-notice');
+  const anTitle = document.getElementById('an-title');
+  const anBody  = document.getElementById('an-body');
+  if (!sel || !notice) return;
+  const id = sel.value;
+  if (!id) { notice.style.display = 'none'; return; }
+  const a = ANALYSES_DATA.find(x => x.id === id);
+  if (!a || !a.points_faibles || !a.points_faibles.length) { notice.style.display = 'none'; return; }
+  if (anTitle) anTitle.textContent = `Points faibles de ${a.nom_adversaire} à exploiter`;
+  if (anBody) {
+    anBody.innerHTML = a.points_faibles.map(pf =>
+      `<div class="an-point"><span class="an-cat">${h(pf.categorie||'')}</span><span>${h(pf.description||'')}</span></div>`
+    ).join('');
+  }
+  notice.style.display = '';
+}
+
+/* ── Init ── */
+document.addEventListener('DOMContentLoaded', () => {
+  renderExos();
+});
+</script>
+{% endblock %}

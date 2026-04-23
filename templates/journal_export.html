@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Journal de bord — {{ nom_club }} — Saison {{ saison }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Georgia', 'Times New Roman', serif;
+      background: #fff; color: #1a1a2e;
+      padding: 2.5cm 2cm;
+      font-size: 11pt; line-height: 1.6;
+    }
+
+    /* Cover header */
+    .cover {
+      text-align: center; padding-bottom: 2rem;
+      border-bottom: 3px solid #1a1a2e; margin-bottom: 2.5rem;
+    }
+    .cover .club-name {
+      font-size: 22pt; font-weight: 700; letter-spacing: -.02em;
+    }
+    .cover .subtitle {
+      font-size: 13pt; color: #555; margin-top: .4rem;
+    }
+    .cover .meta {
+      font-size: 9pt; color: #888; margin-top: .75rem;
+      text-transform: uppercase; letter-spacing: .1em;
+    }
+    .cover .entry-summary {
+      margin-top: 1rem; font-size: 10pt; color: #555;
+    }
+
+    /* Timeline */
+    .tl { position: relative; padding-left: 28px; }
+    .tl::before {
+      content: ''; position: absolute; left: 8px; top: 0; bottom: 0;
+      width: 1.5px; background: #ddd;
+    }
+
+    /* Month label */
+    .tl-month {
+      position: relative; margin: 1.8rem 0 .8rem -28px;
+      padding-left: 28px; font-size: 8.5pt; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .1em; color: #999;
+      font-family: 'Arial', sans-serif;
+    }
+    .tl-month::before {
+      content: ''; position: absolute; left: 4px; top: 50%;
+      transform: translateY(-50%); width: 9px; height: 9px;
+      border-radius: 50%; background: #ccc;
+    }
+
+    /* Entry */
+    .tl-entry {
+      position: relative; margin-bottom: 1.4rem;
+      page-break-inside: avoid;
+    }
+    .tl-dot {
+      position: absolute; left: -22px; top: 1rem;
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid #fff;
+    }
+
+    .tl-card {
+      border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: .9rem 1.1rem; background: #fafafa;
+    }
+    .tl-meta {
+      display: flex; align-items: center; gap: .5rem;
+      flex-wrap: wrap; margin-bottom: .4rem;
+    }
+    .tl-date {
+      font-size: 8.5pt; color: #888; font-family: 'Arial', sans-serif;
+    }
+    .cat-badge {
+      font-size: 7.5pt; font-weight: 700; padding: 1px 7px;
+      border-radius: 20px; text-transform: uppercase;
+      letter-spacing: .04em; font-family: 'Arial', sans-serif;
+    }
+    .mood-pill { font-size: 11pt; }
+    .auto-tag {
+      font-size: 7pt; color: #f59e0b; font-weight: 700;
+      font-family: 'Arial', sans-serif;
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .tl-titre {
+      font-size: 12pt; font-weight: 700; margin-bottom: .35rem;
+      color: #1a1a2e;
+    }
+    .tl-contenu {
+      font-size: 10pt; color: #444; line-height: 1.65;
+      white-space: pre-wrap; word-break: break-word;
+    }
+
+    /* Footer */
+    .export-footer {
+      margin-top: 3rem; padding-top: 1rem;
+      border-top: 1px solid #e5e7eb;
+      font-size: 8pt; color: #bbb; text-align: center;
+      font-family: 'Arial', sans-serif;
+    }
+
+    /* Print */
+    @media print {
+      body { padding: 1.5cm; }
+      .no-print { display: none !important; }
+      .tl-entry { page-break-inside: avoid; }
+    }
+
+    /* Screen only */
+    @media screen {
+      body { max-width: 800px; margin: 0 auto; }
+      .print-bar {
+        position: sticky; top: 0; z-index: 10;
+        background: #1a1a2e; padding: .75rem 1.5rem;
+        display: flex; align-items: center; justify-content: space-between;
+        margin: -2.5cm -2cm 2rem; font-family: 'Arial', sans-serif;
+      }
+      .print-bar span { color: #eee; font-size: .85rem; }
+      .print-bar button {
+        padding: .45rem 1.1rem; background: #FFFFFF; color: #fff;
+        border: none; border-radius: 6px; font-size: .85rem;
+        font-weight: 600; cursor: pointer;
+      }
+      .print-bar button:hover { background: #0066C4; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen print bar -->
+  <div class="print-bar no-print">
+    <span>📓 Journal de bord — {{ nom_club }}{% if equipe_nom %} · {{ equipe_nom }}{% endif %} · Saison {{ saison }}</span>
+    <button onclick="window.print()">🖨 Imprimer / PDF</button>
+  </div>
+
+  <!-- Cover -->
+  <div class="cover">
+    <div class="club-name">{{ nom_club }}</div>
+    <div class="subtitle">📓 Journal de bord{% if equipe_nom %} · {{ equipe_nom }}{% endif %}</div>
+    <div class="meta">Saison {{ saison }} · Exporté le {{ now }}</div>
+    <div class="entry-summary">{{ entries|length }} entrée{{ 's' if entries|length != 1 }}</div>
+  </div>
+
+  <!-- Timeline (chronologique : plus ancienne → plus récente) -->
+  {% if entries %}
+  <div class="tl">
+    {% set ns = namespace(cur_month='') %}
+    {% for e in entries %}
+      {% set em = e.date_entree[:7] if e.date_entree else '' %}
+      {% if em != ns.cur_month %}
+        {% set ns.cur_month = em %}
+        <div class="tl-month">{{ em | format_month }}</div>
+      {% endif %}
+
+      {% set color = cat_colors.get(e.categorie, '#6b7280') %}
+      <div class="tl-entry">
+        <div class="tl-dot" style="background:{{ color }};"></div>
+        <div class="tl-card">
+          <div class="tl-meta">
+            <span class="tl-date">
+              {{ e.date_entree[8:10] }}/{{ e.date_entree[5:7] }}/{{ e.date_entree[:4] }}
+            </span>
+            <span class="cat-badge"
+                  style="background:{{ color }}20; color:{{ color }}; border:1px solid {{ color }}50;">
+              {{ e.categorie }}
+            </span>
+            {% if e.humeur %}
+              <span class="mood-pill">{{ mood_emoji.get(e.humeur, '') }} {{ e.humeur }}</span>
+            {% endif %}
+            {% if e.source != 'manuel' %}
+              <span class="auto-tag">Auto</span>
+            {% endif %}
+          </div>
+          <div class="tl-titre">{{ e.titre }}</div>
+          {% if e.contenu %}
+            <div class="tl-contenu">{{ e.contenu }}</div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    <p style="text-align:center;color:#888;margin-top:3rem;">
+      Aucune entrée dans le journal pour cette saison.
+    </p>
+  {% endif %}
+
+  <div class="export-footer">
+    Généré par Tactix · {{ nom_club }} · Saison {{ saison }}
+  </div>
+
+  <script>
+    // Auto-print si lancé depuis le bouton export
+    if (window.opener || document.referrer.includes('/journal')) {
+      setTimeout(() => window.print(), 600);
+    }
+  </script>
+</body>
+</html>

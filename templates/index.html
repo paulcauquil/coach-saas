@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tactix — Ton jeu, tes règles</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #F4F5F7;
+      --surface:  #FFFFFF;
+      --surface2: #F4F5F7;
+      --border:   #E5E7EB;
+      --border2:  #D1D5DB;
+      --accent:   #0055A4;
+      --accent-h: #0066C4;
+      --orange:   #E8752A;
+      --text:     #111118;
+      --text2:    #6B7280;
+      --muted:    #9CA3AF;
+      --r:        6px;
+      --font:     'Manrope', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ═══════════════════════════════════════
+       NAV
+    ═══════════════════════════════════════ */
+    .nav {
+      position: sticky;
+      top: 3px; /* below accent bar */
+      z-index: 100;
+      background: rgba(17,17,24,.97);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid #1A1A2E;
+      height: 52px;
+      display: flex;
+      align-items: center;
+    }
+    .nav-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* Logo */
+    .nav-logo {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -.04em;
+      color: #FFFFFF;
+      margin-right: 2rem;
+      flex-shrink: 0;
+    }
+    .nav-logo em { font-style: normal; color: #0055A4; }
+
+    /* Menu items */
+    .nav-menu {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      flex: 1;
+      list-style: none;
+    }
+    .nav-item {
+      position: relative;
+    }
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+      padding: 0 .85rem;
+      height: 52px;
+      font-size: .82rem;
+      font-weight: 500;
+      color: #888;
+      cursor: pointer;
+      transition: color .15s;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .nav-link:hover, .nav-item:hover .nav-link { color: #FFFFFF; }
+    .nav-link svg { transition: transform .2s; flex-shrink: 0; }
+    .nav-item:hover .nav-link svg { transform: rotate(180deg); }
+
+    /* Dropdown */
+    .nav-dropdown {
+      position: absolute;
+      top: calc(100% + 1px);
+      left: 0;
+      background: #FFFFFF;
+      border: 1px solid #E5E7EB;
+      border-radius: 6px;
+      padding: .4rem;
+      min-width: 220px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-6px);
+      transition: opacity .15s, transform .15s;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    }
+    .nav-item:hover .nav-dropdown {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0);
+    }
+    .dd-item {
+      display: flex;
+      align-items: flex-start;
+      gap: .65rem;
+      padding: .55rem .7rem;
+      border-radius: 4px;
+      transition: background .1s;
+      cursor: pointer;
+    }
+    .dd-item:hover { background: #F4F5F7; }
+    .dd-icon {
+      font-size: .9rem;
+      line-height: 1.4;
+      flex-shrink: 0;
+      width: 18px;
+      text-align: center;
+    }
+    .dd-text { display: flex; flex-direction: column; gap: .1rem; }
+    .dd-label { font-size: .82rem; font-weight: 600; color: #111118; }
+    .dd-desc  { font-size: .72rem; color: #9CA3AF; line-height: 1.3; }
+
+    .dd-divider {
+      height: 1px;
+      background: #E5E7EB;
+      margin: .3rem .4rem;
+    }
+
+    /* Nav right */
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-left: auto;
+    }
+    .btn-ghost {
+      padding: .4rem .8rem;
+      font-size: .8rem;
+      font-weight: 500;
+      color: #888;
+      border-radius: var(--r);
+      transition: color .15s;
+    }
+    .btn-ghost:hover { color: #FFFFFF; }
+    .btn-cta {
+      padding: .4rem .9rem;
+      font-size: .8rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+      border-radius: var(--r);
+      transition: background .15s;
+    }
+    .btn-cta:hover { background: var(--accent-h); color: #fff; }
+
+    /* Mobile menu toggle (visible < 700px) */
+    .nav-toggle { display: none; background: none; border: none; cursor: pointer; padding: .4rem; color: var(--text2); }
+
+    /* ═══════════════════════════════════════
+       HERO
+    ═══════════════════════════════════════ */
+    .hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 5rem 1.5rem 4rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+    .hero-label {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      border: 1px solid rgba(0,85,164,.18);
+      background: rgba(255,255,255,.07);
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 1.25rem;
+    }
+    .hero h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      letter-spacing: -.05em;
+      line-height: 1.05;
+      margin-bottom: 1.1rem;
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--accent);
+    }
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--text2);
+      line-height: 1.6;
+      margin-bottom: 2rem;
+      max-width: 440px;
+    }
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      flex-wrap: wrap;
+    }
+    .btn-hero-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .65rem 1.3rem;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font);
+      font-size: .88rem;
+      font-weight: 600;
+      border-radius: var(--r);
+      border: none;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-hero-primary:hover { background: var(--accent-h); color: #fff; }
+    .btn-hero-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      padding: .65rem 1.1rem;
+      background: transparent;
+      color: var(--text2);
+      font-size: .88rem;
+      font-weight: 500;
+      border-radius: var(--r);
+      border: 1px solid var(--border2);
+      transition: border-color .15s, color .15s;
+    }
+    .btn-hero-secondary:hover { border-color: var(--text2); color: var(--text); }
+    .hero-trust {
+      margin-top: 1.5rem;
+      font-size: .73rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .hero-trust span { color: var(--success, #2ECC71); font-weight: 600; }
+
+    /* Hero visual — mockup terminal */
+    .hero-visual {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .hv-bar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: .6rem .9rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .hv-dot { width: 9px; height: 9px; border-radius: 50%; }
+    .hv-title { font-size: .72rem; color: var(--muted); margin-left: .3rem; }
+    .hv-body { padding: 1rem; display: flex; flex-direction: column; gap: .5rem; }
+
+    /* Mini scoreboard */
+    .score-row {
+      display: flex;
+      align-items: center;
+      padding: .55rem .7rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      font-size: .78rem;
+      gap: .5rem;
+    }
+    .score-date { font-size: .65rem; color: var(--muted); width: 52px; flex-shrink: 0; }
+    .score-team { flex: 1; font-weight: 500; }
+    .score-team.right { text-align: right; }
+    .score-num {
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -.02em;
+      font-size: .85rem;
+      width: 48px;
+      text-align: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 2px 4px;
+    }
+    .result-v { color: #2ECC71; }
+    .result-d { color: #E74C3C; }
+    .result-n { color: #F0AD00; }
+
+    /* Mini stat strip */
+    .mini-stats {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      overflow: hidden;
+      margin-top: .25rem;
+    }
+    .ms-cell {
+      flex: 1;
+      padding: .55rem .5rem;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+    .ms-cell:last-child { border-right: none; }
+    .ms-n { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ms-l { font-size: .6rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+
+    /* ═══════════════════════════════════════
+       SOCIAL PROOF BAR
+    ═══════════════════════════════════════ */
+    .proof-bar {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 1.1rem 1.5rem;
+    }
+    .proof-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3rem;
+      flex-wrap: wrap;
+    }
+    .proof-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .15rem;
+    }
+    .proof-n {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -.04em;
+      color: var(--text);
+    }
+    .proof-n em { font-style: normal; color: var(--accent); }
+    .proof-l { font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+
+    /* ═══════════════════════════════════════
+       FEATURES
+    ═══════════════════════════════════════ */
+    .features {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 5rem 1.5rem;
+    }
+    .section-tag {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      margin-bottom: .65rem;
+    }
+    .section-title {
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: -.04em;
+      line-height: 1.1;
+      margin-bottom: .6rem;
+    }
+    .section-sub {
+      font-size: .9rem;
+      color: var(--text2);
+      max-width: 480px;
+      line-height: 1.6;
+      margin-bottom: 3rem;
+    }
+
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .feat-card {
+      background: var(--surface);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      transition: background .12s;
+    }
+    .feat-card:hover { background: var(--surface2); }
+    .feat-icon {
+      font-size: 1.2rem;
+      line-height: 1;
+      margin-bottom: .25rem;
+    }
+    .feat-title {
+      font-size: .9rem;
+      font-weight: 600;
+      letter-spacing: -.01em;
+    }
+    .feat-desc {
+      font-size: .78rem;
+      color: var(--text2);
+      line-height: 1.5;
+    }
+    .feat-tag {
+      display: inline-block;
+      font-size: .6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 2px 6px;
+      border-radius: 3px;
+      width: fit-content;
+    }
+    .feat-tag-pro { background: rgba(0,85,164,.07); color: var(--accent); border: 1px solid rgba(0,85,164,.15); }
+    .feat-tag-free { background: rgba(46,204,113,.08); color: #2ECC71; border: 1px solid rgba(46,204,113,.2); }
+
+    /* ═══════════════════════════════════════
+       PRICING TEASER
+    ═══════════════════════════════════════ */
+    .pricing-section {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .pricing-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 5rem 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    .price-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.75rem;
+    }
+    .price-card.featured {
+      border-color: var(--accent);
+      background: var(--bg);
+      position: relative;
+    }
+    .price-card.featured::before {
+      content: 'Recommandé';
+      position: absolute;
+      top: -1px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      font-size: .62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 2px 10px;
+      border-radius: 0 0 4px 4px;
+    }
+    .price-plan { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: .5rem; }
+    .price-amount { font-size: 2.5rem; font-weight: 700; letter-spacing: -.05em; line-height: 1; }
+    .price-amount sup { font-size: 1.1rem; font-weight: 600; vertical-align: super; letter-spacing: 0; }
+    .price-period { font-size: .75rem; color: var(--muted); margin-top: .2rem; margin-bottom: 1.25rem; }
+    .price-btn {
+      display: block;
+      text-align: center;
+      padding: .6rem;
+      border-radius: var(--r);
+      font-size: .85rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      transition: background .15s;
+    }
+    .price-btn-outline {
+      border: 1px solid var(--border2);
+      color: var(--text2);
+    }
+    .price-btn-outline:hover { border-color: var(--text); color: var(--text); }
+    .price-btn-solid { background: var(--accent); color: #fff; border: none; }
+    .price-btn-solid:hover { background: var(--accent-h); color: #fff; }
+    .price-features { list-style: none; display: flex; flex-direction: column; gap: .55rem; }
+    .price-features li { font-size: .8rem; color: var(--text2); display: flex; align-items: center; gap: .5rem; }
+    .price-features li::before { content: '✓'; color: #2ECC71; font-weight: 700; flex-shrink: 0; }
+    .price-features li.off { color: var(--muted); }
+    .price-features li.off::before { content: '–'; color: var(--muted); }
+
+    /* ═══════════════════════════════════════
+       CTA FINAL
+    ═══════════════════════════════════════ */
+    .cta-section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 5rem 1.5rem;
+      text-align: center;
+    }
+    .cta-section h2 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -.04em;
+      margin-bottom: .75rem;
+    }
+    .cta-section h2 em { font-style: normal; color: var(--accent); }
+    .cta-section p { font-size: .9rem; color: var(--text2); margin-bottom: 2rem; }
+
+    /* ═══════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════ */
+    footer {
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .footer-logo { font-size: .9rem; font-weight: 700; letter-spacing: -.04em; }
+    .footer-logo em { font-style: normal; color: var(--accent); }
+    .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .footer-links a { font-size: .78rem; color: var(--muted); transition: color .15s; }
+    .footer-links a:hover { color: var(--text2); }
+    .footer-copy { font-size: .72rem; color: var(--muted); }
+
+    /* ═══════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .hero { grid-template-columns: 1fr; padding: 3rem 1.25rem 2.5rem; gap: 2rem; }
+      .hero h1 { font-size: 2.2rem; }
+      .hero-visual { display: none; }
+      .feat-grid { grid-template-columns: 1fr; }
+      .pricing-inner { grid-template-columns: 1fr; }
+      .proof-inner { gap: 2rem; }
+      .nav-menu { display: none; }
+      .nav-toggle { display: flex; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Accent bar -->
+  <div style="position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#0055A4 70%,#E8752A 30%);z-index:200;"></div>
+
+  <!-- ── NAV ── -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">tact<em>ix</em></a>
+
+      <ul class="nav-menu" id="navMenu">
+
+        <!-- Fonctionnalités -->
+        <li class="nav-item">
+          <div class="nav-link">
+            Fonctionnalités
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="nav-dropdown">
+            <a href="/effectif" class="dd-item">
+              <span class="dd-icon">👥</span>
+              <span class="dd-text">
+                <span class="dd-label">Gestion de l'effectif</span>
+                <span class="dd-desc">Profils joueurs, stats individuelles</span>
+              </span>
+            </a>
+            <a href="/matchs" class="dd-item">
+              <span class="dd-icon">⚽</span>
+              <span class="dd-text">
+                <span class="dd-label">Suivi des matchs</span>
+                <span class="dd-desc">Résultats, historique, classement</span>
+              </span>
+            </a>
+            <a href="/composition" class="dd-item">
+              <span class="dd-icon">🎯</span>
+              <span class="dd-text">
+                <span class="dd-label">Composition tactique</span>
+                <span class="dd-desc">Terrain interactif, disposition visuelle</span>
+              </span>
+            </a>
+            <a href="/analyse-adversaire" class="dd-item">
+              <span class="dd-icon">🔍</span>
+              <span class="dd-text">
+                <span class="dd-label">Analyse adversaire</span>
+                <span class="dd-desc">Fiches de préparation structurées</span>
+              </span>
+            </a>
+            <div class="dd-divider"></div>
+            <a href="/seances" class="dd-item">
+              <span class="dd-icon">🏋</span>
+              <span class="dd-text">
+                <span class="dd-label">Séances d'entraînement</span>
+                <span class="dd-desc">Exercices, objectifs, planning</span>
+              </span>
+            </a>
+            <a href="/blessures" class="dd-item">
+              <span class="dd-icon">🩹</span>
+              <span class="dd-text">
+                <span class="dd-label">Suivi des blessures</span>
+                <span class="dd-desc">Disponibilités, retour à l'entraînement</span>
+              </span>
+            </a>
+          </div>
+        </li>
+
+        <!-- Pour qui -->
+        <li class="nav-item">
+          <div class="nav-link">
+            Pour qui
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="nav-dropdown">
+            <a href="#" class="dd-item">
+              <span class="dd-icon">🏟</span>
+              <span class="dd-text">
+                <span class="dd-label">Clubs amateurs</span>
+                <span class="dd-desc">Gérez jusqu'à plusieurs équipes</span>
+              </span>
+            </a>
+            <a href="#" class="dd-item">
+              <span class="dd-icon">🎓</span>
+              <span class="dd-text">
+                <span class="dd-label">Académies & formation</span>
+                <span class="dd-desc">Suivi de progression des jeunes</span>
+              </span>
+            </a>
+            <a href="#" class="dd-item">
+              <span class="dd-icon">👤</span>
+              <span class="dd-text">
+                <span class="dd-label">Entraîneurs indépendants</span>
+                <span class="dd-desc">Outil léger, accessible partout</span>
+              </span>
+            </a>
+          </div>
+        </li>
+
+        <!-- Tarifs (lien direct) -->
+        <li class="nav-item">
+          <a href="/tarifs" class="nav-link">Tarifs</a>
+        </li>
+
+        <!-- Ressources -->
+        <li class="nav-item">
+          <div class="nav-link">
+            Ressources
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="nav-dropdown" style="left:auto;right:0;">
+            <a href="#" class="dd-item">
+              <span class="dd-icon">📖</span>
+              <span class="dd-text">
+                <span class="dd-label">Documentation</span>
+                <span class="dd-desc">Guides et tutoriels</span>
+              </span>
+            </a>
+            <a href="#" class="dd-item">
+              <span class="dd-icon">📓</span>
+              <span class="dd-text">
+                <span class="dd-label">Blog</span>
+                <span class="dd-desc">Tactique, analyse, coaching</span>
+              </span>
+            </a>
+          </div>
+        </li>
+
+      </ul>
+
+      <!-- CTA droite -->
+      <div class="nav-right">
+        <a href="/connexion" class="btn-ghost">Se connecter</a>
+        <a href="/inscription" class="btn-cta">Commencer gratuitement</a>
+      </div>
+
+      <!-- Mobile toggle -->
+      <button class="nav-toggle" id="navToggle" aria-label="Menu">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M3 5H17M3 10H17M3 15H17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── HERO ── -->
+  <section>
+    <div class="hero">
+      <div class="hero-left">
+        <div class="hero-label">
+          <span>⚡</span> Application de coaching sportif
+        </div>
+        <h1>Ton jeu,<br><em>tes règles.</em></h1>
+        <p class="hero-sub">
+          Gérez votre équipe, analysez vos matchs et préparez chaque séance
+          depuis une plateforme pensée pour les entraîneurs sérieux.
+        </p>
+        <div class="hero-actions">
+          <a href="/inscription" class="btn-hero-primary">
+            Commencer gratuitement
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 7H11M7 3L11 7L7 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a href="/tarifs" class="btn-hero-secondary">Voir les tarifs</a>
+        </div>
+        <div class="hero-trust">
+          <span>✓</span> Gratuit sans carte bancaire — Mise en place en 2 minutes
+        </div>
+      </div>
+
+      <!-- Mockup visuel -->
+      <div class="hero-visual">
+        <div class="hv-bar">
+          <div class="hv-dot" style="background:#E74C3C;"></div>
+          <div class="hv-dot" style="background:#F0AD00;"></div>
+          <div class="hv-dot" style="background:#2ECC71;"></div>
+          <span class="hv-title">tactix — Tableau de bord</span>
+        </div>
+        <div class="hv-body">
+          <!-- Stats mini -->
+          <div class="mini-stats">
+            <div class="ms-cell">
+              <div class="ms-n" style="color:#2ECC71;">8</div>
+              <div class="ms-l">Victoires</div>
+            </div>
+            <div class="ms-cell">
+              <div class="ms-n" style="color:#F0AD00;">3</div>
+              <div class="ms-l">Nuls</div>
+            </div>
+            <div class="ms-cell">
+              <div class="ms-n" style="color:#E74C3C;">2</div>
+              <div class="ms-l">Défaites</div>
+            </div>
+            <div class="ms-cell">
+              <div class="ms-n" style="color:#0055A4;">24</div>
+              <div class="ms-l">Buts</div>
+            </div>
+          </div>
+          <!-- Derniers matchs -->
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:.25rem 0 .1rem;">Derniers matchs</div>
+          <div class="score-row">
+            <span class="score-date">18/04</span>
+            <span class="score-team">FC Tactix</span>
+            <span class="score-num result-v">3 – 1</span>
+            <span class="score-team right">AS Rivale</span>
+          </div>
+          <div class="score-row">
+            <span class="score-date">11/04</span>
+            <span class="score-team">US Nord</span>
+            <span class="score-num result-n">1 – 1</span>
+            <span class="score-team right">FC Tactix</span>
+          </div>
+          <div class="score-row">
+            <span class="score-date">04/04</span>
+            <span class="score-team">FC Tactix</span>
+            <span class="score-num result-v">2 – 0</span>
+            <span class="score-team right">Olympique B</span>
+          </div>
+          <!-- Joueurs -->
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:.5rem 0 .1rem;">Effectif</div>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+            {% for name, pos, col in [('K. Martin','ATT','#FFFFFF'),('L. Durand','MIL','#2ECC71'),('A. Benali','DEF','#A78BFA'),('T. Moreau','MIL','#2ECC71'),('R. Costa','ATT','#FFFFFF')] %}
+            <div style="display:flex;align-items:center;gap:.35rem;padding:.3rem .55rem;background:var(--bg);border:1px solid var(--border);border-radius:3px;font-size:.7rem;">
+              <span style="width:6px;height:6px;border-radius:50%;background:{{col}};flex-shrink:0;"></span>
+              <span style="font-weight:500;">{{name}}</span>
+              <span style="color:var(--muted);">{{pos}}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PROOF BAR ── -->
+  <div class="proof-bar">
+    <div class="proof-inner">
+      <div class="proof-item">
+        <div class="proof-n">+<em>500</em></div>
+        <div class="proof-l">Clubs inscrits</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-n"><em>12 000</em>+</div>
+        <div class="proof-l">Matchs enregistrés</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-n"><em>98%</em></div>
+        <div class="proof-l">Satisfaction</div>
+      </div>
+      <div class="proof-item">
+        <div class="proof-n"><em>5</em> sports</div>
+        <div class="proof-l">Supportés</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FEATURES ── -->
+  <section class="features">
+    <div class="section-tag">Fonctionnalités</div>
+    <div class="section-title">Tout ce dont un coach a besoin.</div>
+    <p class="section-sub">De la gestion de l'effectif à l'analyse tactique — pensé pour les entraîneurs qui veulent passer moins de temps sur l'admin et plus sur le terrain.</p>
+
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-icon">👥</div>
+        <div class="feat-title">Effectif & profils</div>
+        <div class="feat-desc">Fiches joueurs complètes, stats saison, suivi de forme et historique des blessures.</div>
+        <span class="feat-tag feat-tag-free">Gratuit</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">⚽</div>
+        <div class="feat-title">Matchs & résultats</div>
+        <div class="feat-desc">Enregistrez chaque match, suivez l'historique et visualisez la progression en temps réel.</div>
+        <span class="feat-tag feat-tag-free">Gratuit</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🏆</div>
+        <div class="feat-title">Classement de poule</div>
+        <div class="feat-desc">Tableau mis à jour automatiquement avec simulateur de projection de fin de saison.</div>
+        <span class="feat-tag feat-tag-free">Gratuit</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🎯</div>
+        <div class="feat-title">Composition tactique</div>
+        <div class="feat-desc">Terrain interactif drag & drop. Définissez vos schémas, exportez en PNG avant le match.</div>
+        <span class="feat-tag feat-tag-pro">Pro</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🔍</div>
+        <div class="feat-title">Analyse adversaire</div>
+        <div class="feat-desc">Fiches structurées pour préparer chaque match : style de jeu, points forts, dangers.</div>
+        <span class="feat-tag feat-tag-free">Gratuit</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🩹</div>
+        <div class="feat-title">Blessures & dispo</div>
+        <div class="feat-desc">Suivi des indisponibilités, retour estimé, impact sur les convocations.</div>
+        <span class="feat-tag feat-tag-free">Gratuit</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PRICING TEASER ── -->
+  <section class="pricing-section">
+    <div class="pricing-inner">
+      <div>
+        <div class="section-tag">Tarifs</div>
+        <div class="section-title">Simple et transparent.</div>
+        <p class="section-sub">Un plan gratuit pour démarrer, un plan Pro pour aller plus loin. Pas de frais cachés.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:1rem;">
+        <!-- Free -->
+        <div class="price-card">
+          <div class="price-plan">Gratuit</div>
+          <div class="price-amount">0<sup>€</sup></div>
+          <div class="price-period">Pour toujours</div>
+          <a href="/inscription" class="price-btn price-btn-outline">Commencer gratuitement</a>
+          <ul class="price-features">
+            <li>Effectif jusqu'à 25 joueurs</li>
+            <li>Matchs & classement</li>
+            <li>Analyse adversaire</li>
+            <li>Journal de bord</li>
+            <li class="off">Composition tactique</li>
+            <li class="off">Export PNG</li>
+          </ul>
+        </div>
+        <!-- Pro -->
+        <div class="price-card featured">
+          <div class="price-plan">Pro</div>
+          <div class="price-amount">29<sup>€</sup></div>
+          <div class="price-period">par mois · sans engagement</div>
+          <a href="/inscription" class="price-btn price-btn-solid">Essayer le plan Pro</a>
+          <ul class="price-features">
+            <li>Tout le plan Gratuit</li>
+            <li>Composition tactique visuelle</li>
+            <li>Export PNG haute résolution</li>
+            <li>Matchs illimités</li>
+            <li>Multi-équipes</li>
+            <li>Support prioritaire</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA FINAL ── -->
+  <section class="cta-section">
+    <h2>Prêt à prendre le contrôle<br>de votre <em>jeu</em> ?</h2>
+    <p>Rejoignez plus de 500 clubs qui gèrent leur saison sur Tactix.</p>
+    <a href="/inscription" class="btn-hero-primary" style="display:inline-flex;">
+      Créer un compte gratuit
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-left:.3rem;">
+        <path d="M3 7H11M7 3L11 7L7 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+  </section>
+
+  <!-- ── FOOTER ── -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-logo">tact<em>ix</em></div>
+      <div class="footer-links">
+        <a href="/tarifs">Tarifs</a>
+        <a href="/connexion">Connexion</a>
+        <a href="/inscription">Inscription</a>
+        <a href="#">Mentions légales</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="footer-copy">© 2025 Tactix. Tous droits réservés.</div>
+    </div>
+  </footer>
+
+  <script>
+    // Mobile menu toggle
+    const toggle = document.getElementById('navToggle');
+    const menu   = document.getElementById('navMenu');
+    if (toggle && menu) {
+      toggle.addEventListener('click', () => {
+        const open = menu.style.display === 'flex';
+        menu.style.display = open ? '' : 'flex';
+        menu.style.flexDirection = 'column';
+        menu.style.position = 'absolute';
+        menu.style.top = '52px';
+        menu.style.left = '0';
+        menu.style.right = '0';
+        menu.style.background = 'var(--surface)';
+        menu.style.borderBottom = '1px solid var(--border)';
+        menu.style.padding = '.5rem 0';
+        menu.style.zIndex = '99';
+      });
+    }
+  </script>
+</body>
+</html>

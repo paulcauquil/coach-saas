@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+{% block title %}Blessures & Indisponibilités — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .bl-page { flex:1; max-width:960px; margin:0 auto; padding:2rem 1.5rem 4rem; width:100%; }
+
+  /* ── Header ── */
+  .bl-header {
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:1rem; flex-wrap:wrap; margin-bottom:2rem;
+  }
+  .bl-header h1 { font-size:1.5rem; font-weight:700; letter-spacing:-.02em; }
+  .bl-header p  { color:var(--muted); font-size:.85rem; margin-top:.25rem; }
+
+  .btn-primary {
+    display:inline-flex; align-items:center; gap:.35rem;
+    padding:.55rem 1.1rem; background:var(--accent); color:#fff;
+    border:none; border-radius:8px; font-size:.85rem; font-weight:600;
+    cursor:pointer; transition:background .15s;
+  }
+  .btn-primary:hover { background:var(--accent-h); }
+
+  /* ── Section title ── */
+  .section-hdr {
+    font-size:.7rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:.1em; color:var(--muted);
+    margin-bottom:1rem; display:flex; align-items:center; gap:.5rem;
+  }
+  .section-hdr .pill {
+    font-size:.68rem; font-weight:700; padding:1px 8px; border-radius:20px;
+    background:rgba(231,76,60,.12); color:#E74C3C;
+    border:1px solid rgba(231,76,60,.25);
+  }
+
+  /* ── Cards grid (actives) ── */
+  .bl-grid {
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr));
+    gap:1rem; margin-bottom:2.5rem;
+  }
+
+  .bl-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); overflow:hidden;
+    display:flex; flex-direction:column;
+    transition:border-color .15s;
+  }
+  .bl-card:hover { border-color:rgba(0,85,164,.15); }
+
+  .bl-card-bar {
+    height:3px;
+  }
+
+  .bl-card-body { padding:1rem 1.1rem; flex:1; }
+
+  .bl-player-row {
+    display:flex; align-items:center; gap:.75rem; margin-bottom:.85rem;
+  }
+  .bl-avatar {
+    width:40px; height:40px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.85rem; font-weight:700; color:#fff; flex-shrink:0;
+    background:linear-gradient(135deg, var(--accent), #0066C4);
+  }
+  .bl-nom { font-size:.95rem; font-weight:700; line-height:1.2; }
+  .bl-poste { font-size:.72rem; color:var(--muted); }
+
+  .bl-badges { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.65rem; }
+  .bl-type-badge {
+    font-size:.68rem; font-weight:700; padding:2px 8px; border-radius:20px;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+  .bl-grav-badge {
+    font-size:.65rem; font-weight:700; padding:2px 7px; border-radius:20px;
+    text-transform:uppercase; letter-spacing:.04em;
+    background:var(--bg); border:1px solid var(--border); color:var(--muted);
+  }
+
+  .bl-description {
+    font-size:.82rem; color:var(--muted); margin-bottom:.65rem;
+    line-height:1.5; font-style:italic;
+  }
+
+  .bl-dates { display:flex; flex-direction:column; gap:.25rem; margin-bottom:.85rem; }
+  .bl-date-row {
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:.78rem;
+  }
+  .bl-date-label { color:var(--muted); }
+  .bl-date-val   { font-weight:600; }
+  .bl-jours {
+    font-size:.72rem; font-weight:700; padding:2px 8px; border-radius:20px;
+    background:rgba(231,76,60,.1); color:#E74C3C;
+    border:1px solid rgba(231,76,60,.2);
+  }
+
+  .bl-card-footer {
+    padding:.75rem 1.1rem; border-top:1px solid var(--border);
+    display:flex; gap:.5rem;
+  }
+  .btn-available {
+    flex:1; padding:.45rem; font-size:.78rem; font-weight:600;
+    background:rgba(46,204,113,.1); color:#2ECC71;
+    border:1px solid rgba(46,204,113,.25); border-radius:6px;
+    cursor:pointer; transition:all .15s; text-align:center;
+  }
+  .btn-available:hover { background:rgba(46,204,113,.2); }
+  .btn-del-small {
+    padding:.45rem .7rem; font-size:.75rem; font-weight:600;
+    background:transparent; color:var(--muted);
+    border:1px solid var(--border); border-radius:6px;
+    cursor:pointer; transition:all .15s;
+  }
+  .btn-del-small:hover { border-color:#E74C3C; color:#E74C3C; }
+
+  /* ── Empty state ── */
+  .bl-empty {
+    grid-column:1/-1; text-align:center; padding:2.5rem 2rem;
+    background:var(--surface); border:1px dashed var(--border);
+    border-radius:var(--radius); color:var(--muted); font-size:.88rem;
+  }
+  .bl-empty .em-icon { font-size:2rem; margin-bottom:.6rem; }
+
+  /* ── Historique table ── */
+  .hist-wrap {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); overflow:hidden; margin-bottom:2rem;
+  }
+  .hist-table {
+    width:100%; border-collapse:collapse; font-size:.82rem;
+  }
+  .hist-table th {
+    padding:.5rem .85rem; text-align:left; font-size:.62rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.07em; color:var(--muted);
+    border-bottom:1px solid var(--border); white-space:nowrap;
+  }
+  .hist-table td {
+    padding:.55rem .85rem; border-bottom:1px solid var(--border); vertical-align:middle;
+  }
+  .hist-table tr:last-child td { border-bottom:none; }
+  .hist-table tbody tr:hover { background:rgba(255,255,255,.02); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,.65); backdrop-filter:blur(4px);
+    z-index:1000; align-items:center; justify-content:center;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:1.75rem; width:100%; max-width:500px;
+    max-height:90vh; overflow-y:auto; margin:1rem;
+  }
+  .modal-header {
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;
+  }
+  .modal-header h2 { font-size:1.05rem; font-weight:700; }
+  .modal-close {
+    background:none; border:none; color:var(--muted); font-size:1.25rem;
+    cursor:pointer; padding:.25rem; line-height:1;
+  }
+  .modal-close:hover { color:var(--text); }
+
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .form-group { margin-bottom:.9rem; }
+  .form-group label {
+    display:block; font-size:.72rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:.35rem;
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width:100%; padding:.6rem .85rem;
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:8px; color:var(--text); font-size:.88rem;
+    outline:none; transition:border-color .15s; font-family:inherit;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus { border-color:var(--accent); }
+  .form-group textarea { resize:vertical; min-height:80px; }
+
+  #grav-group { display:none; }
+  #grav-group.visible { display:block; }
+
+  .modal-footer {
+    display:flex; gap:.6rem; justify-content:flex-end; margin-top:1.1rem;
+  }
+  .btn-cancel {
+    padding:.6rem 1.1rem; background:transparent;
+    border:1px solid var(--border); border-radius:8px;
+    color:var(--muted); font-size:.85rem; cursor:pointer; transition:all .15s;
+  }
+  .btn-cancel:hover { border-color:var(--text); color:var(--text); }
+  .btn-save {
+    padding:.6rem 1.2rem; background:var(--accent); color:#fff;
+    border:none; border-radius:8px; font-size:.85rem; font-weight:600;
+    cursor:pointer; transition:background .15s;
+  }
+  .btn-save:hover { background:var(--accent-h); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bl-page">
+
+  <!-- Header -->
+  <div class="bl-header">
+    <div>
+      <h1>🩹 Blessures & Indisponibilités</h1>
+      <p>Suivi des disponibilités de l'effectif.</p>
+    </div>
+    {% if user_role != 'joueur' %}
+    <button class="btn-primary" onclick="document.getElementById('modal-declarer').classList.add('open')">
+      + Déclarer une indisponibilité
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Section : joueurs actuellement indisponibles -->
+  <div class="section-hdr">
+    Indisponibles actuellement
+    {% if actives %}
+      <span class="pill">{{ actives|length }}</span>
+    {% endif %}
+  </div>
+
+  <div class="bl-grid">
+    {% if actives %}
+      {% for ind in actives %}
+        {% set j = joueurs_by_id.get(ind.joueur_id|string, {}) %}
+        {% set color = indispo_color(ind.type, ind.gravite or '') %}
+        {% set initiales = ((j.prenom or '?')[0] + (j.nom or '?')[0])|upper %}
+
+        <div class="bl-card" style="border-color:{{ color }}33;">
+          <div class="bl-card-bar" style="background:{{ color }};"></div>
+          <div class="bl-card-body">
+
+            <div class="bl-player-row">
+              <div class="bl-avatar"
+                   style="background:linear-gradient(135deg,{{ color }},{{ color }}99);">
+                {% if j.photo_url %}
+                  <img src="{{ j.photo_url }}" alt="{{ initiales }}"
+                       style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                {% else %}
+                  {{ initiales }}
+                {% endif %}
+              </div>
+              <div>
+                <div class="bl-nom">{{ j.prenom or '?' }} {{ j.nom or '?' }}</div>
+                {% if j.poste %}<div class="bl-poste">{{ j.poste }}</div>{% endif %}
+              </div>
+            </div>
+
+            <div class="bl-badges">
+              <span class="bl-type-badge"
+                    style="background:{{ color }}18; color:{{ color }}; border:1px solid {{ color }}44;">
+                {{ ind.type }}
+              </span>
+              {% if ind.gravite %}
+                <span class="bl-grav-badge">{{ ind.gravite }}</span>
+              {% endif %}
+            </div>
+
+            {% if ind.description %}
+              <div class="bl-description">{{ ind.description }}</div>
+            {% endif %}
+
+            <div class="bl-dates">
+              <div class="bl-date-row">
+                <span class="bl-date-label">Depuis le</span>
+                <span class="bl-date-val">
+                  {{ ind.date_debut[8:10] }}/{{ ind.date_debut[5:7] }}/{{ ind.date_debut[:4] }}
+                  <span class="bl-jours">{{ ind.nb_jours }}j</span>
+                </span>
+              </div>
+              {% if ind.date_retour_estimee %}
+              <div class="bl-date-row">
+                <span class="bl-date-label">Retour estimé</span>
+                <span class="bl-date-val">
+                  {{ ind.date_retour_estimee[8:10] }}/{{ ind.date_retour_estimee[5:7] }}/{{ ind.date_retour_estimee[:4] }}
+                </span>
+              </div>
+              {% else %}
+              <div class="bl-date-row">
+                <span class="bl-date-label">Retour estimé</span>
+                <span style="color:var(--muted);font-size:.78rem;">—</span>
+              </div>
+              {% endif %}
+            </div>
+
+          </div>
+          {% if user_role != 'joueur' %}
+          <div class="bl-card-footer">
+            <form method="post" action="/blessures/clore/{{ ind.id }}" style="flex:1;">
+              <button class="btn-available" type="submit">✓ Marquer disponible</button>
+            </form>
+            <form method="post" action="/blessures/supprimer/{{ ind.id }}"
+                  onsubmit="return confirm('Supprimer cette indisponibilité ?');">
+              <button class="btn-del-small" type="submit">✕</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+
+      {% endfor %}
+    {% else %}
+      <div class="bl-empty">
+        <div class="em-icon">✅</div>
+        <div>Aucun joueur indisponible en ce moment.</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Section : historique saison -->
+  <div class="section-hdr" style="margin-top:1rem;">Historique de la saison</div>
+
+  {% if historique %}
+  <div class="hist-wrap">
+    <table class="hist-table">
+      <thead>
+        <tr>
+          <th>Joueur</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Début</th>
+          <th>Retour effectif</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ind in historique %}
+          {% set j = joueurs_by_id.get(ind.joueur_id|string, {}) %}
+          {% set color = indispo_color(ind.type, ind.gravite or '') %}
+          <tr>
+            <td style="font-weight:600;">{{ j.prenom or '?' }} {{ j.nom or '?' }}</td>
+            <td>
+              <span class="bl-type-badge"
+                    style="background:{{ color }}18;color:{{ color }};border:1px solid {{ color }}44;font-size:.65rem;">
+                {{ ind.type }}{% if ind.gravite %} · {{ ind.gravite }}{% endif %}
+              </span>
+            </td>
+            <td style="color:var(--muted);font-style:italic;">{{ ind.description or '—' }}</td>
+            <td style="color:var(--muted);">
+              {% if ind.date_debut %}{{ ind.date_debut[8:10] }}/{{ ind.date_debut[5:7] }}/{{ ind.date_debut[:4] }}{% else %}—{% endif %}
+            </td>
+            <td style="color:#2ECC71;font-weight:600;">
+              {% if ind.date_retour_effective %}
+                {{ ind.date_retour_effective[8:10] }}/{{ ind.date_retour_effective[5:7] }}/{{ ind.date_retour_effective[:4] }}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if user_role != 'joueur' %}
+              <form method="post" action="/blessures/supprimer/{{ ind.id }}"
+                    onsubmit="return confirm('Supprimer ?');">
+                <button class="btn-del-small" type="submit" style="font-size:.7rem;padding:2px 7px;">✕</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="bl-empty" style="display:block;padding:1.5rem;">
+    Aucune indisponibilité clôturée cette saison.
+  </div>
+  {% endif %}
+
+</div>
+
+{% if user_role != 'joueur' %}
+<!-- ═══════════ Modal Déclarer ═══════════ -->
+<div class="modal-overlay" id="modal-declarer">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>🩹 Déclarer une indisponibilité</h2>
+      <button class="modal-close"
+              onclick="document.getElementById('modal-declarer').classList.remove('open')">✕</button>
+    </div>
+    <form method="post" action="/blessures/declarer">
+
+      <div class="form-group">
+        <label>Joueur</label>
+        <select name="joueur_id" required>
+          <option value="">— Sélectionner —</option>
+          {% for j in joueurs %}
+            <option value="{{ j.id }}">{{ j.prenom }} {{ j.nom }}{% if j.poste %} · {{ j.poste }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Type</label>
+          <select name="type_indispo" id="type-select" onchange="toggleGravite(this.value)" required>
+            {% for t in indispo_types %}
+              <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" id="grav-group">
+          <label>Gravité</label>
+          <select name="gravite">
+            <option value="">— Non précisée —</option>
+            {% for g in indispo_gravite %}
+              <option value="{{ g }}">{{ g }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Description <span style="color:var(--muted);font-weight:400;">(optionnel)</span></label>
+        <textarea name="description" placeholder="Ex : Entorse cheville droite, douleurs au genou…"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date de début</label>
+          <input type="date" name="date_debut" id="date-debut" required>
+        </div>
+        <div class="form-group">
+          <label>Retour estimé <span style="color:var(--muted);font-weight:400;">(optionnel)</span></label>
+          <input type="date" name="date_retour_estimee">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel"
+                onclick="document.getElementById('modal-declarer').classList.remove('open')">Annuler</button>
+        <button type="submit" class="btn-save">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+// Default date = today
+const _tn = new Date();
+document.getElementById('date-debut').value = `${_tn.getFullYear()}-${String(_tn.getMonth()+1).padStart(2,'0')}-${String(_tn.getDate()).padStart(2,'0')}`;
+
+function toggleGravite(type) {
+  const g = document.getElementById('grav-group');
+  g.classList.toggle('visible', type === 'Blessure' || type === 'Maladie');
+}
+// Init on load
+toggleGravite(document.getElementById('type-select').value);
+
+// Close on overlay click
+document.getElementById('modal-declarer').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('modal-declarer').classList.remove('open');
+});
+</script>
+{% endblock %}

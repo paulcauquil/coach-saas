@@ -1,0 +1,1435 @@
+{% extends "base.html" %}
+{% block title %}Composition — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  /* ── Layout ── */
+  .comp-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 1.75rem 2rem;
+    max-width: 1080px;
+    margin: 0 auto;
+    width: 100%;
+    gap: 1rem;
+  }
+
+  /* ── Header row ── */
+  .comp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem;
+  }
+  .comp-title   { font-size: 1.3rem; font-weight: 700; letter-spacing: -.02em; }
+  .sport-badge  {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--accent);
+    background: rgba(0,85,164,.07); border: 1px solid rgba(255,255,255,.22);
+    border-radius: 20px; padding: 2px 10px; margin-left: .5rem;
+  }
+  .header-btns  { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+  /* ── Toolbar (formation / tabs) ── */
+  .comp-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    flex-wrap: wrap;
+    min-height: 36px;
+  }
+  .formation-sel {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius);
+    padding: .42rem .8rem; font-size: .88rem; font-weight: 600;
+    cursor: pointer; outline: none; transition: border-color .15s;
+  }
+  .formation-sel:focus { border-color: var(--accent); }
+  .toolbar-label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+  .toolbar-hint  { font-size: .75rem; color: var(--muted); margin-left: auto; }
+  /* Am. Football tabs */
+  .am-tabs { display: flex; gap: .3rem; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+  .am-tab  { padding: .28rem .75rem; border-radius: 6px; font-size: .82rem; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--muted); transition: background .15s, color .15s; }
+  .am-tab.active { background: var(--accent); color: #fff; }
+
+  /* ── Main body ── */
+  .comp-body {
+    display: flex;
+    gap: 1.1rem;
+    align-items: flex-start;
+  }
+
+  /* ── Canvas area ── */
+  .pitch-area { flex-shrink: 0; position: relative; }
+  #pitch-canvas {
+    display: block;
+    width: 100%;
+    max-width: 460px;
+    height: auto;
+    border-radius: 10px;
+    cursor: default;
+    box-shadow: 0 8px 32px rgba(0,0,0,.55);
+  }
+  .pitch-area.drag-over #pitch-canvas { box-shadow: 0 0 0 3px var(--accent), 0 8px 32px rgba(0,0,0,.5); }
+
+  /* ── Toolbar buttons ── */
+  .btn-toolbar {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .42rem .85rem; border-radius: var(--radius);
+    font-size: .85rem; font-weight: 600; cursor: pointer;
+    transition: background .15s, border-color .15s; white-space: nowrap;
+  }
+  .btn-reset  { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .btn-reset:hover { border-color: #E74C3C; color: #E74C3C; background: rgba(231,76,60,.06); }
+  .btn-export { background: var(--accent); border: 1px solid transparent; color: #fff; }
+  .btn-export:hover { background: var(--accent-h); }
+
+  /* ── Players panel ── */
+  .players-panel {
+    flex: 1; min-width: 220px; max-width: 270px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); display: flex; flex-direction: column;
+    max-height: 700px;
+  }
+  .panel-header {
+    padding: .85rem 1rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .panel-header-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .panel-count {
+    font-size: .7rem; font-weight: 700;
+    background: rgba(0,85,164,.07); color: var(--accent);
+    border: 1px solid rgba(0,85,164,.12); border-radius: 20px; padding: 1px 8px;
+  }
+  .players-scroll {
+    overflow-y: auto; flex: 1; padding: .45rem;
+    display: flex; flex-direction: column; gap: .3rem;
+  }
+  .players-scroll::-webkit-scrollbar { width: 4px; }
+  .players-scroll::-webkit-scrollbar-track { background: transparent; }
+  .players-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── Player item ── */
+  .player-item {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .5rem .6rem; border: 1px solid transparent;
+    border-radius: 8px; cursor: grab;
+    transition: background .12s, border-color .12s, opacity .18s;
+    user-select: none; position: relative;
+  }
+  .player-item:hover   { background: rgba(255,255,255,.07); border-color: rgba(0,85,164,.12); }
+  .player-item:active  { cursor: grabbing; }
+  .player-item.placed  { opacity: .35; }
+  .player-item.placed::after {
+    content: '✓'; position: absolute; right: .6rem;
+    font-size: .68rem; color: #2ECC71; font-weight: 700;
+  }
+  .mini-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .68rem; font-weight: 700; color: #fff; flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  .player-item-info { min-width: 0; }
+  .player-item-name { font-size: .8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .player-item-meta { font-size: .68rem; color: var(--muted); }
+
+  .empty-list { padding: 1.5rem 1rem; text-align: center; color: var(--muted); font-size: .82rem; }
+
+  /* ── Responsive ── */
+  @media (max-width: 720px) {
+    .comp-wrapper { padding: 1rem; }
+    .comp-body    { flex-direction: column; }
+    .players-panel { max-width: 100%; max-height: 240px; }
+    #pitch-canvas  { max-width: 100%; }
+    .toolbar-hint  { display: none; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="comp-wrapper">
+
+  <!-- Header -->
+  <div class="comp-header">
+    <span class="comp-title">🎯 Composition <span class="sport-badge">{{ sport }}</span></span>
+    <div class="header-btns">
+      <button class="btn-toolbar btn-reset"  id="btn-reset">↺ Réinitialiser</button>
+      <button class="btn-toolbar btn-export" id="btn-export">⬇ Exporter en image</button>
+    </div>
+  </div>
+
+  <!-- Toolbar (built by JS) -->
+  <div class="comp-toolbar" id="comp-toolbar"></div>
+
+  <!-- Body -->
+  <div class="comp-body">
+
+    <!-- Canvas -->
+    <div class="pitch-area" id="pitch-area">
+      <canvas id="pitch-canvas"></canvas>
+      <!-- Tooltip hover joueur -->
+      <div id="canvas-tooltip" style="
+        display:none; position:fixed; pointer-events:none; z-index:300;
+        background:#1a1f2e; border:1px solid rgba(0,85,164,.18);
+        border-radius:9px; padding:.4rem .8rem;
+        box-shadow:0 6px 20px rgba(0,0,0,.55); white-space:nowrap;
+      ">
+        <div id="tt-name"  style="font-size:.8rem;font-weight:700;color:#e4e8f0;"></div>
+        <div id="tt-poste" style="font-size:.7rem;color:#6b7280;margin-top:1px;"></div>
+      </div>
+    </div>
+
+    <!-- Player list -->
+    <div class="players-panel">
+      <div class="panel-header">
+        <span class="panel-header-title">Effectif</span>
+        <span class="panel-count">{{ joueurs|length }} joueur{{ 's' if joueurs|length != 1 }}</span>
+      </div>
+      <div class="players-scroll" id="players-scroll">
+        {% if joueurs %}
+          {% for j in joueurs %}
+          <div class="player-item"
+               draggable="true"
+               id="pi-{{ j.id }}"
+               data-id="{{ j.id }}"
+               data-poste="{{ j.poste|lower }}"
+               title="Glisser sur le terrain">
+            <div class="mini-avatar" id="av-{{ j.id }}">
+              {{ (j.prenom or '?')[0] }}{{ (j.nom or '?')[0] }}
+            </div>
+            <div class="player-item-info">
+              <div class="player-item-name">{{ j.prenom }} {{ j.nom }}</div>
+              <div class="player-item-meta">{% if j.numero %}#{{ j.numero }} · {% endif %}{{ (j.poste or '')|capitalize }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-list">
+            Aucun joueur dans l'effectif.<br>
+            <a href="/effectif" style="color:var(--accent);">Ajouter des joueurs →</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Données injectées par Flask
+// ═══════════════════════════════════════════════════════════════════════════════
+const SPORT      = {{ sport               | tojson }};
+const CLUB_NAME  = {{ nom_club            | tojson }};
+const COULEUR_1  = {{ couleur_principale  | tojson }};  // avants (n°1-8)
+const COULEUR_2  = {{ couleur_secondaire  | tojson }};  // arrières (n°9-15)
+const PLAYERS    = {};
+{% for j in joueurs %}
+PLAYERS[{{ j.id | tojson }}] = {{ j | tojson }};
+{% endfor %}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Config par sport
+// ═══════════════════════════════════════════════════════════════════════════════
+const SPORT_CFG = {
+  'Football': {
+    terrainH: 560, benchH: 82, starters: 11, subs: 7,
+    formations: ['4-3-3','4-4-2','3-5-2','4-2-3-1','4-1-4-1','4-3-2-1','5-4-1','3-4-3','4-5-1','3-4-2-1'],
+    hasTabs: false, benchRows: 1,
+  },
+  'Rugby': {
+    terrainH: 390, benchH: 82, starters: 15, subs: 8,
+    formations: ['Standard XV'],
+    hasTabs: false, benchRows: 1,
+  },
+  'Handball': {
+    terrainH: 390, benchH: 82, starters: 7, subs: 7,
+    formations: ['6-0','5-1','4-2','3-2-1'],
+    hasTabs: false, benchRows: 1,
+  },
+  'Basket': {
+    terrainH: 430, benchH: 82, starters: 5, subs: 7,
+    formations: ['Standard'],
+    hasTabs: false, benchRows: 1,
+  },
+  'Volley-ball': {
+    terrainH: 350, benchH: 82, starters: 6, subs: 7,
+    formations: ['Rotation 1','Rotation 2','Rotation 3','Rotation 4','Rotation 5','Rotation 6'],
+    hasTabs: false, benchRows: 1,
+  },
+  'Hockey sur glace': {
+    terrainH: 360, benchH: 130, starters: 6, subs: 14,
+    formations: ['Standard'],
+    hasTabs: false, benchRows: 2,
+  },
+  'Football américain': {
+    terrainH: 450, benchH: 82, starters: 11, subs: 11,
+    formationsAtt: ['Shotgun','I-Formation','Single Back','Pistol','Wildcat'],
+    formationsDef: ['4-3','3-4','Nickel','Dime','46'],
+    formations: ['Shotgun'],
+    hasTabs: true, benchRows: 1,
+  },
+  'Water-polo': {
+    terrainH: 390, benchH: 82, starters: 7, subs: 6,
+    formations: ['3-3','4-2','2-4'],
+    hasTabs: false, benchRows: 1,
+  },
+};
+
+const cfg = SPORT_CFG[SPORT] || SPORT_CFG['Football'];
+const CW         = 460;
+const TERRAIN_H  = cfg.terrainH;
+const BENCH_H    = cfg.benchH;
+const CH         = TERRAIN_H + BENCH_H;
+const PAD        = 22;
+const PW         = CW - 2 * PAD;
+const PH         = TERRAIN_H - 2 * PAD;
+const PLAYER_R   = 21;
+const BENCH_R    = cfg.benchRows === 2 ? 13 : 16;
+
+// Position colors
+const POS_COLOR = {
+  'gardien'  : '#f97316',
+  'défenseur': '#FFFFFF',
+  'milieu'   : '#2ECC71',
+  'attaquant': '#E74C3C',
+};
+
+function posColor(poste) {
+  const p = (poste || '').toLowerCase();
+  if (/gard|keeper|portero/.test(p))    return '#f97316';
+  if (/défens|back|arrière|prop|hooker|flanker|lock|libéro|libero/.test(p)) return '#FFFFFF';
+  if (/milieu|mid|pivot|demi|ouver|scrum|fly/.test(p))  return '#2ECC71';
+  if (/attaqu|avant|forward|wing|striker|ailier|winger/.test(p)) return '#E74C3C';
+  return POS_COLOR[p] || '#8b5cf6';
+}
+
+// ── Couleurs rugby : COULEUR_1 pour TOUS (titulaires et remplaçants) ─────────
+function rugbySlotColor(_slotIdx) {
+  // Un seul groupe, une seule couleur — plus de distinction avant/arrière
+  return COULEUR_1;
+}
+function rugbyPlayerColor(_player) {
+  return COULEUR_1;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Canvas HiDPI
+// ═══════════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('pitch-canvas');
+const ctx    = canvas.getContext('2d');
+const DPR    = window.devicePixelRatio || 1;
+
+canvas.width        = CW * DPR;
+canvas.height       = CH * DPR;
+canvas.style.width  = CW + 'px';
+canvas.style.maxWidth = '100%';
+canvas.style.height = 'auto';
+ctx.scale(DPR, DPR);
+
+function clientToCanvas(cx, cy) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (cx - r.left) * (CW / r.width), y: (cy - r.top) * (CH / r.height) };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  État global
+// ═══════════════════════════════════════════════════════════════════════════════
+let placedPlayers = [];   // {player, x, y, isBench, benchIdx}
+let formation     = cfg.formations[0];
+let formationDef  = (cfg.formationsDef || ['4-3'])[0];
+let amTab         = 'attaque';
+let dragFromList  = null;
+let canvasDrag    = null;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  TERRAIN DRAWING
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function drawTerrain() {
+  switch (SPORT) {
+    case 'Rugby':             drawRugby();      break;
+    case 'Handball':          drawHandball();   break;
+    case 'Basket':            drawBasket();     break;
+    case 'Volley-ball':       drawVolley();     break;
+    case 'Hockey sur glace':  drawHockey();     break;
+    case 'Football américain':drawAmFootball(); break;
+    case 'Water-polo':        drawWaterPolo();  break;
+    default:                  drawFootball();
+  }
+}
+
+/* ── Football ── */
+function drawFootball() {
+  ctx.fillStyle = '#276b27';
+  ctx.fillRect(0, 0, CW, TERRAIN_H);
+  const nS = 8;
+  for (let i = 0; i < nS; i++) {
+    if (i % 2 === 0) { ctx.fillStyle = 'rgba(0,0,0,.07)'; ctx.fillRect(PAD, PAD + i * PH / nS, PW, PH / nS); }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+  ctx.strokeRect(PAD, PAD, PW, PH);
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + PH / 2); ctx.lineTo(PAD + PW, PAD + PH / 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(CW / 2, PAD + PH / 2, PW * 0.13, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.beginPath(); ctx.arc(CW / 2, PAD + PH / 2, 2.5, 0, Math.PI * 2); ctx.fill();
+  const paW = PW * 0.60, paD = PH * 0.157, paX = PAD + (PW - paW) / 2;
+  ctx.strokeRect(paX, PAD, paW, paD);
+  ctx.strokeRect(paX, PAD + PH - paD, paW, paD);
+  const gaW = PW * 0.28, gaD = PH * 0.052, gaX = PAD + (PW - gaW) / 2;
+  ctx.strokeRect(gaX, PAD, gaW, gaD);
+  ctx.strokeRect(gaX, PAD + PH - gaD, gaW, gaD);
+  ctx.strokeStyle = 'rgba(255,255,255,.45)';
+  const gW = PW * 0.11, gD = 13, gX = PAD + (PW - gW) / 2;
+  ctx.strokeRect(gX, PAD - gD, gW, gD);
+  ctx.strokeRect(gX, PAD + PH, gW, gD);
+  ctx.strokeStyle = 'rgba(255,255,255,.85)';
+  const ps = PH * 0.105;
+  [PAD + ps, PAD + PH - ps].forEach(py => {
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(CW / 2, py, 2.5, 0, Math.PI * 2); ctx.fill();
+    const aT = Math.asin(Math.min(1, Math.abs((py < PAD + PH / 2 ? PAD + paD : PAD + PH - paD) - py) / (PW * 0.13)));
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (py < PAD + PH / 2) ctx.arc(CW / 2, py, PW * 0.13, Math.PI - aT, aT, true);
+    else ctx.arc(CW / 2, py, PW * 0.13, -(Math.PI - aT), -aT, false);
+    ctx.stroke();
+  });
+  const KR = 7;
+  [[PAD, PAD, 0, Math.PI/2],[PAD+PW,PAD,Math.PI/2,Math.PI],[PAD,PAD+PH,-Math.PI/2,0],[PAD+PW,PAD+PH,Math.PI,3*Math.PI/2]]
+    .forEach(([x,y,sa,ea]) => { ctx.beginPath(); ctx.arc(x,y,KR,sa,ea); ctx.stroke(); });
+}
+
+/* ── Rugby ── */
+function drawRugby() {
+  ctx.fillStyle = '#276b27'; ctx.fillRect(0, 0, CW, TERRAIN_H);
+  for (let i = 0; i < 10; i++) {
+    if (i % 2 === 0) { ctx.fillStyle = 'rgba(0,0,0,.07)'; ctx.fillRect(PAD, PAD + i * PH / 10, PW, PH / 10); }
+  }
+  const TZ = Math.round(PH * 0.13); // try zone height
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(PAD, PAD, PW, PH);
+  // Try zones
+  ctx.strokeStyle = 'rgba(255,255,255,.6)';
+  ctx.strokeRect(PAD, PAD, PW, TZ);
+  ctx.strokeRect(PAD, PAD + PH - TZ, PW, TZ);
+  ctx.fillStyle = 'rgba(0,0,0,.02)';
+  ctx.fillRect(PAD, PAD, PW, TZ);
+  ctx.fillRect(PAD, PAD + PH - TZ, PW, TZ);
+  // Halfway
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + PH / 2); ctx.lineTo(PAD + PW, PAD + PH / 2); ctx.stroke();
+  // 22m lines (approx 22% from each try zone inner edge)
+  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5;
+  const y22a = PAD + TZ + PH * 0.22;
+  const y22b = PAD + PH - TZ - PH * 0.22;
+  ctx.beginPath(); ctx.moveTo(PAD, y22a); ctx.lineTo(PAD + PW, y22a); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD, y22b); ctx.lineTo(PAD + PW, y22b); ctx.stroke();
+  // Poteaux rugby en H — les poteaux partent de la ligne de but et s'élèvent
+  // dans la zone d'en-but. La barre transversale est en bas du H (proche de la ligne).
+  const gLineTop = PAD + TZ;
+  const gLineBot = PAD + PH - TZ;
+  const postGap  = 22;                      // demi-écartement entre les deux poteaux
+  const postH    = Math.round(TZ * 0.82);   // hauteur totale des poteaux dans l'en-but
+  const cbOff    = Math.round(TZ * 0.24);   // distance barre / ligne de but (bas du H)
+  ctx.strokeStyle = 'rgba(255,210,50,.95)'; ctx.lineWidth = 2.5;
+  // ── H supérieur : poteaux partent de gLineTop et montent (y décroissant) ──
+  ctx.beginPath(); ctx.moveTo(CW/2 - postGap, gLineTop); ctx.lineTo(CW/2 - postGap, gLineTop - postH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CW/2 + postGap, gLineTop); ctx.lineTo(CW/2 + postGap, gLineTop - postH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CW/2 - postGap, gLineTop - cbOff); ctx.lineTo(CW/2 + postGap, gLineTop - cbOff); ctx.stroke();
+  // ── H inférieur : poteaux partent de gLineBot et descendent (y croissant) ──
+  ctx.beginPath(); ctx.moveTo(CW/2 - postGap, gLineBot); ctx.lineTo(CW/2 - postGap, gLineBot + postH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CW/2 + postGap, gLineBot); ctx.lineTo(CW/2 + postGap, gLineBot + postH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CW/2 - postGap, gLineBot + cbOff); ctx.lineTo(CW/2 + postGap, gLineBot + cbOff); ctx.stroke();
+}
+
+/* ── Handball ── */
+function drawHandball() {
+  ctx.fillStyle = '#c0722a'; ctx.fillRect(0, 0, CW, TERRAIN_H);
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(PAD, PAD, PW, PH);
+  ctx.beginPath(); ctx.moveTo(CW / 2, PAD); ctx.lineTo(CW / 2, PAD + PH); ctx.stroke();
+  ctx.beginPath(); ctx.arc(CW / 2, PAD + PH / 2, PW * 0.13, 0, Math.PI * 2); ctx.stroke();
+  // 6m goal area arcs (D-shape from each goal post end)
+  const r6 = PH * 0.26, r9 = r6 + PH * 0.14;
+  const goalH = PH * 0.23;
+  for (const [cx2, flip] of [[PAD, 1], [PAD + PW, -1]]) {
+    // 6m solid arc
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx2, PAD + PH / 2, r6, -Math.PI / 2, Math.PI / 2, flip < 0);
+    ctx.stroke();
+    // 9m dashed arc
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.arc(cx2, PAD + PH / 2, r9, -Math.PI / 2, Math.PI / 2, flip < 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Goal (rectangle behind line)
+    const gx = flip > 0 ? PAD - 14 : PAD + PW;
+    ctx.fillStyle = 'rgba(255,255,255,.18)';
+    ctx.fillRect(gx, PAD + PH / 2 - goalH / 2, 14, goalH);
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(gx, PAD + PH / 2 - goalH / 2, 14, goalH);
+    // Penalty spots
+    ctx.fillStyle = 'rgba(255,255,255,.8)';
+    ctx.beginPath(); ctx.arc(cx2 + flip * r6 * 0.55, PAD + PH / 2, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+/* ── Basket (half-court) ── */
+function drawBasket() {
+  ctx.fillStyle = '#7b3f10'; ctx.fillRect(0, 0, CW, TERRAIN_H);
+  // Wood grain stripes
+  for (let i = 0; i < 10; i++) {
+    if (i % 2 === 0) { ctx.fillStyle = 'rgba(255,160,60,.06)'; ctx.fillRect(PAD, PAD + i * PH / 10, PW, PH / 10); }
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(PAD, PAD, PW, PH);
+  // Free throw line (top half)
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + PH * 0.5); ctx.lineTo(PAD + PW, PAD + PH * 0.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(CW / 2, PAD + PH * 0.5, PW * 0.13, 0, Math.PI * 2); ctx.stroke();
+  // Both baskets
+  for (const [ex, flip] of [[PAD, 1], [PAD + PW, -1]]) {
+    const keyW = PW * 0.28, keyH = PH * 0.34;
+    const keyX = flip > 0 ? ex : ex - keyW;
+    ctx.fillStyle = 'rgba(0,0,0,.14)';
+    ctx.fillRect(keyX, PAD + (PH - keyH) / 2, keyW, keyH);
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(keyX, PAD + (PH - keyH) / 2, keyW, keyH);
+    // Free-throw circle
+    const ftcX = ex + flip * keyW;
+    ctx.beginPath(); ctx.arc(ftcX, PAD + PH / 2, PW * 0.13, 0, Math.PI * 2); ctx.stroke();
+    // 3-point arc
+    const r3 = PH * 0.37;
+    ctx.beginPath();
+    ctx.arc(ex + flip * PW * 0.065, PAD + PH / 2, r3, flip > 0 ? -Math.PI / 2 : Math.PI / 2, flip > 0 ? Math.PI / 2 : -Math.PI / 2, flip < 0);
+    ctx.stroke();
+    // Basket
+    ctx.strokeStyle = 'rgba(255,80,20,.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(ex + flip * PW * 0.1, PAD + PH / 2, PW * 0.025, 0, Math.PI * 2); ctx.stroke();
+    // Backboard
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2.5;
+    const bbX = ex + flip * PW * 0.075;
+    ctx.beginPath(); ctx.moveTo(bbX, PAD + PH / 2 - PH * 0.06); ctx.lineTo(bbX, PAD + PH / 2 + PH * 0.06); ctx.stroke();
+  }
+}
+
+/* ── Volleyball ── */
+function drawVolley() {
+  ctx.fillStyle = '#1a4a8a'; ctx.fillRect(0, 0, CW, TERRAIN_H);
+  ctx.fillStyle = '#c8a860';
+  ctx.fillRect(PAD, PAD, PW, PH);
+  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2;
+  ctx.strokeRect(PAD, PAD, PW, PH);
+  // Net
+  const netY = PAD + PH / 2;
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(PAD, netY); ctx.lineTo(PAD + PW, netY); ctx.stroke();
+  // Net mesh
+  ctx.lineWidth = 0.7; ctx.strokeStyle = 'rgba(255,255,255,.4)';
+  for (let x = PAD; x <= PAD + PW; x += 18) {
+    ctx.beginPath(); ctx.moveTo(x, netY - 8); ctx.lineTo(x, netY + 8); ctx.stroke();
+  }
+  // Attack lines 3m from net
+  const atk = PH * 0.22;
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.beginPath(); ctx.moveTo(PAD, netY - atk); ctx.lineTo(PAD + PW, netY - atk); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD, netY + atk); ctx.lineTo(PAD + PW, netY + atk); ctx.stroke();
+  // Service zones markers
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+  const sz = 20;
+  ctx.beginPath(); ctx.moveTo(PAD + PW + 2, PAD); ctx.lineTo(PAD + PW + 2 + sz, PAD); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD + PW + 2, PAD + PH); ctx.lineTo(PAD + PW + 2 + sz, PAD + PH); ctx.stroke();
+}
+
+/* ── Hockey sur glace ── */
+function drawHockey() {
+  ctx.fillStyle = '#c8dce8'; ctx.fillRect(0, 0, CW, TERRAIN_H);
+  const r = 36;
+  ctx.beginPath();
+  ctx.moveTo(PAD + r, PAD);
+  ctx.lineTo(PAD + PW - r, PAD);
+  ctx.quadraticCurveTo(PAD + PW, PAD, PAD + PW, PAD + r);
+  ctx.lineTo(PAD + PW, PAD + PH - r);
+  ctx.quadraticCurveTo(PAD + PW, PAD + PH, PAD + PW - r, PAD + PH);
+  ctx.lineTo(PAD + r, PAD + PH);
+  ctx.quadraticCurveTo(PAD, PAD + PH, PAD, PAD + PH - r);
+  ctx.lineTo(PAD, PAD + r);
+  ctx.quadraticCurveTo(PAD, PAD, PAD + r, PAD);
+  ctx.closePath();
+  ctx.fillStyle = '#e8f2f8'; ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,120,.6)'; ctx.lineWidth = 2.5; ctx.stroke();
+  // Red center
+  ctx.strokeStyle = 'rgba(200,0,0,.75)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(CW/2, PAD); ctx.lineTo(CW/2, PAD + PH); ctx.stroke();
+  // Blue lines
+  ctx.strokeStyle = 'rgba(0,0,200,.65)'; ctx.lineWidth = 2;
+  const bl1 = PAD + PW * 0.3, bl2 = PAD + PW * 0.7;
+  ctx.beginPath(); ctx.moveTo(bl1, PAD); ctx.lineTo(bl1, PAD + PH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(bl2, PAD); ctx.lineTo(bl2, PAD + PH); ctx.stroke();
+  // Center face-off
+  ctx.strokeStyle = 'rgba(200,0,0,.7)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(CW/2, PAD + PH/2, PH * 0.15, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(200,0,0,.8)'; ctx.beginPath(); ctx.arc(CW/2, PAD + PH/2, 3, 0, Math.PI * 2); ctx.fill();
+  // Face-off circles x4
+  for (const [fx, fy] of [[0.22, 0.28],[0.22, 0.72],[0.78, 0.28],[0.78, 0.72]]) {
+    const fx2 = PAD + PW * fx, fy2 = PAD + PH * fy;
+    ctx.strokeStyle = 'rgba(200,0,0,.6)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(fx2, fy2, PH * 0.11, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(200,0,0,.7)'; ctx.beginPath(); ctx.arc(fx2, fy2, 3, 0, Math.PI * 2); ctx.fill();
+  }
+  // Goals
+  for (const [gx, flip] of [[PAD + 3, 1],[PAD + PW - 3, -1]]) {
+    ctx.fillStyle = 'rgba(200,0,0,.25)';
+    ctx.fillRect(gx + (flip < 0 ? -22 : 0), PAD + PH/2 - 22, 22, 44);
+    ctx.strokeStyle = 'rgba(200,0,0,.8)'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(gx + (flip < 0 ? -22 : 0), PAD + PH/2 - 22, 22, 44);
+    // Crease
+    ctx.strokeStyle = 'rgba(0,0,200,.5)'; ctx.lineWidth = 1.5;
+    const cx2 = gx + (flip > 0 ? 11 : -11);
+    ctx.beginPath(); ctx.arc(cx2, PAD + PH/2, 36, -Math.PI/2, Math.PI/2, flip < 0); ctx.stroke();
+  }
+}
+
+/* ── Football américain ── */
+function drawAmFootball() {
+  ctx.fillStyle = '#256325'; ctx.fillRect(0, 0, CW, TERRAIN_H);
+  for (let i = 0; i < 12; i++) {
+    if (i % 2 === 0) { ctx.fillStyle = 'rgba(0,0,0,.06)'; ctx.fillRect(PAD, PAD + i * PH / 12, PW, PH / 12); }
+  }
+  const EZ = Math.round(PH * 0.13);
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(PAD, PAD, PW, PH);
+  // End zones
+  ctx.fillStyle = 'rgba(0,85,164,.04)';
+  ctx.fillRect(PAD, PAD, PW, EZ);
+  ctx.fillRect(PAD, PAD + PH - EZ, PW, EZ);
+  ctx.strokeStyle = 'rgba(255,255,255,.65)';
+  ctx.strokeRect(PAD, PAD, PW, EZ);
+  ctx.strokeRect(PAD, PAD + PH - EZ, PW, EZ);
+  // Yard lines
+  ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 10; i++) {
+    const y = PAD + EZ + (PH - 2 * EZ) * i / 10;
+    ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(PAD + PW, y); ctx.stroke();
+    const lbl = i <= 5 ? i * 10 : (10 - i) * 10;
+    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.font = 'bold 10px Manrope,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(lbl, PAD + 18, y);
+    ctx.fillText(lbl, PAD + PW - 18, y);
+  }
+  // Line of scrimmage (center)
+  ctx.strokeStyle = 'rgba(255,220,0,.65)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + PH/2); ctx.lineTo(PAD + PW, PAD + PH/2); ctx.stroke();
+  // Goal posts
+  for (const gY of [PAD + EZ/2, PAD + PH - EZ/2]) {
+    ctx.strokeStyle = 'rgba(255,220,50,.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(CW/2, gY + 22); ctx.lineTo(CW/2, gY - 32); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CW/2 - 20, gY - 18); ctx.lineTo(CW/2 + 20, gY - 18); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CW/2 - 20, gY - 18); ctx.lineTo(CW/2 - 20, gY - 42); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(CW/2 + 20, gY - 18); ctx.lineTo(CW/2 + 20, gY - 42); ctx.stroke();
+  }
+}
+
+/* ── Water polo ── */
+function drawWaterPolo() {
+  ctx.fillStyle = '#0d4c92'; ctx.fillRect(0, 0, CW, TERRAIN_H);
+  // Water ripples
+  for (let i = 0; i < 14; i++) {
+    ctx.fillStyle = `rgba(255,255,255,${0.015 + i % 3 * 0.01})`;
+    ctx.fillRect(PAD + PW * 0.05, PAD + (i + 0.5) * PH / 15, PW * 0.9, PH / 30);
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
+  ctx.strokeRect(PAD, PAD, PW, PH);
+  // Halfway
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + PH/2); ctx.lineTo(PAD + PW, PAD + PH/2); ctx.stroke();
+  // 5m lines (yellow)
+  ctx.strokeStyle = 'rgba(255,220,0,.7)'; ctx.lineWidth = 1.5;
+  const d5 = PH * 0.15;
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + d5); ctx.lineTo(PAD + PW, PAD + d5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + PH - d5); ctx.lineTo(PAD + PW, PAD + PH - d5); ctx.stroke();
+  // 2m lines (red)
+  ctx.strokeStyle = 'rgba(220,0,0,.7)'; ctx.lineWidth = 1.5;
+  const d2 = PH * 0.055;
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + d2); ctx.lineTo(PAD + PW, PAD + d2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD, PAD + PH - d2); ctx.lineTo(PAD + PW, PAD + PH - d2); ctx.stroke();
+  // Goals
+  const gW = PW * 0.22, gH = 16;
+  const gX = PAD + (PW - gW) / 2;
+  for (const gY of [PAD - gH, PAD + PH]) {
+    ctx.fillStyle = 'rgba(0,85,164,.12)';
+    ctx.fillRect(gX, gY, gW, gH);
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(gX, gY, gW, gH);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  BENCH ZONE
+// ═══════════════════════════════════════════════════════════════════════════════
+const BENCH_LABEL_H = 26;
+
+function getBenchPositions() {
+  const subs = cfg.subs;
+  const rows = cfg.benchRows || 1;
+  const perRow = Math.ceil(subs / rows);
+  const positions = [];
+  for (let i = 0; i < subs; i++) {
+    const row = Math.floor(i / perRow);
+    const col = i % perRow;
+    const n   = Math.min(perRow, subs - row * perRow);
+    const bx  = CW * (col + 1) / (n + 1);
+    const rowH = (BENCH_H - BENCH_LABEL_H) / rows;
+    const by  = TERRAIN_H + BENCH_LABEL_H + rowH * (row + 0.5);
+    positions.push({ x: bx, y: by, idx: i });
+  }
+  return positions;
+}
+
+function drawBench() {
+  const y0 = TERRAIN_H;
+  ctx.fillStyle = 'rgba(0,0,0,.32)';
+  ctx.fillRect(0, y0, CW, BENCH_H);
+  ctx.strokeStyle = 'rgba(0,85,164,.08)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(CW, y0); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.38)';
+  ctx.font = '600 10px Manrope,sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText('REMPLAÇANTS', 14, y0 + 7);
+  // Bench slots
+  getBenchPositions().forEach(bp => {
+    const pp = placedPlayers.find(p => p.isBench && p.benchIdx === bp.idx);
+    if (pp) {
+      // Rugby : remplaçants numérotés 16-23
+      const slotNum = SPORT === 'Rugby' ? bp.idx + 16 : null;
+      drawPlayerToken(bp.x, bp.y, pp.player, BENCH_R, true, slotNum);
+    } else {
+      drawEmptySlot(bp.x, bp.y, BENCH_R, String(bp.idx + 1));
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  FORMATION POSITIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+function getFormationPositions() {
+  switch (SPORT) {
+    case 'Rugby':             return rugbyPositions();
+    case 'Handball':          return handballPositions(formation);
+    case 'Basket':            return basketPositions();
+    case 'Volley-ball':       return volleyPositions(formation);
+    case 'Hockey sur glace':  return hockeyPositions();
+    case 'Football américain':return amFootballPositions(amTab === 'attaque' ? formation : formationDef, amTab);
+    case 'Water-polo':        return waterPoloPositions(formation);
+    default:                  return footballPositions(formation);
+  }
+}
+
+function fieldXY(fx, fy) {
+  return { x: PAD + fx * PW, y: PAD + fy * PH };
+}
+
+/* Football */
+function footballPositions(fm) {
+  const lines = fm.split('-').map(Number);
+  const pts = [{ ...fieldXY(.5, .90), lbl: 'GB' }];
+  const lineYs = [.76, .58, .40, .22, .10];
+  lines.forEach((n, li) => {
+    const y = lineYs[li] || .15;
+    for (let i = 0; i < n; i++) pts.push({ ...fieldXY((i + 1) / (n + 1), y), lbl: '' });
+  });
+  return pts;
+}
+
+/* Rugby XV — positions fixes numérotées 1-15 (index = numéro - 1)
+   Convention : on attaque vers le HAUT du canvas.
+   Avants (n°1-8) en bas, arrières (n°9-15) en haut.
+   Gauche écran = gauche du joueur qui attaque vers le haut. */
+function rugbyPositions() {
+  return [
+    // ── Ligne 7 (bas) : première ligne ─────────────────────────────────────
+    { ...fieldXY(.32, .82), lbl: '1' },  // n°1  Pilier gauche   ← gauche écran
+    { ...fieldXY(.50, .84), lbl: '2' },  // n°2  Talonneur        center
+    { ...fieldXY(.68, .82), lbl: '3' },  // n°3  Pilier droit    → droite écran
+    // ── Ligne 6 : deuxièmes lignes ──────────────────────────────────────────
+    { ...fieldXY(.38, .70), lbl: '4' },  // n°4  2e ligne gauche
+    { ...fieldXY(.62, .70), lbl: '5' },  // n°5  2e ligne droit
+    // ── Ligne 5 : troisième ligne ───────────────────────────────────────────
+    { ...fieldXY(.24, .58), lbl: '6' },  // n°6  Flanker gauche  ← gauche
+    { ...fieldXY(.76, .58), lbl: '7' },  // n°7  Flanker droit   → droite
+    { ...fieldXY(.50, .60), lbl: '8' },  // n°8  Numéro 8         center
+    // ── Ligne 3-4 : demis (même ligne horizontale) ──────────────────────────
+    { ...fieldXY(.36, .41), lbl: '9' },  // n°9  Demi de mêlée     gauche
+    { ...fieldXY(.64, .41), lbl:'10' },  // n°10 Demi d'ouverture  droite
+    // ── Ligne 2 : trois-quarts ──────────────────────────────────────────────
+    { ...fieldXY(.10, .22), lbl:'11' },  // n°11 Ailier gauche   ← bord gauche
+    { ...fieldXY(.34, .20), lbl:'12' },  // n°12 Premier centre
+    { ...fieldXY(.62, .20), lbl:'13' },  // n°13 Deuxième centre
+    { ...fieldXY(.88, .22), lbl:'14' },  // n°14 Ailier droit    → bord droit
+    // ── Ligne 1 (haut) : arrière ────────────────────────────────────────────
+    { ...fieldXY(.50, .09), lbl:'15' },  // n°15 Arrière          haut center
+  ];
+}
+
+/* Handball */
+function handballPositions(fm) {
+  // Attack = right side; GK = left
+  const pts = [{ ...fieldXY(.08, .50), lbl: 'GB' }];
+  const ax = .62; // attack line x
+  switch (fm) {
+    case '6-0':
+      for (let i = 0; i < 6; i++) pts.push({ ...fieldXY(ax, .15 + i * .14), lbl: '' });
+      break;
+    case '5-1':
+      pts.push({ ...fieldXY(ax - .12, .50), lbl: 'PIV' });
+      for (let i = 0; i < 5; i++) pts.push({ ...fieldXY(ax, .15 + i * .17), lbl: '' });
+      break;
+    case '4-2':
+      pts.push({ ...fieldXY(ax - .12, .34), lbl: '' });
+      pts.push({ ...fieldXY(ax - .12, .66), lbl: '' });
+      for (let i = 0; i < 4; i++) pts.push({ ...fieldXY(ax, .20 + i * .20), lbl: '' });
+      break;
+    case '3-2-1':
+      pts.push({ ...fieldXY(ax - .18, .50), lbl: 'PIV' });
+      pts.push({ ...fieldXY(ax - .10, .34), lbl: '' });
+      pts.push({ ...fieldXY(ax - .10, .66), lbl: '' });
+      for (let i = 0; i < 3; i++) pts.push({ ...fieldXY(ax, .24 + i * .26), lbl: '' });
+      break;
+    default:
+      for (let i = 0; i < 6; i++) pts.push({ ...fieldXY(ax, .15 + i * .14), lbl: '' });
+  }
+  return pts;
+}
+
+/* Basket — 5 fixed positions */
+function basketPositions() {
+  return [
+    { ...fieldXY(.42, .50), lbl: 'MN'  },  // Meneur
+    { ...fieldXY(.65, .30), lbl: 'AR'  },  // Arrière
+    { ...fieldXY(.78, .17), lbl: 'AG'  },  // Ailier
+    { ...fieldXY(.78, .83), lbl: 'AF'  },  // Ailier Fort
+    { ...fieldXY(.86, .50), lbl: 'PIV' },  // Pivot
+  ];
+}
+
+/* Volleyball — 6 rotation positions */
+function volleyPositions(fm) {
+  const rot = (parseInt(fm.split(' ')[1] || '1') - 1) % 6;
+  const base = [
+    { ...fieldXY(.80, .72) },  // pos 1
+    { ...fieldXY(.80, .56) },  // pos 2
+    { ...fieldXY(.50, .56) },  // pos 3
+    { ...fieldXY(.20, .56) },  // pos 4
+    { ...fieldXY(.20, .72) },  // pos 5
+    { ...fieldXY(.50, .72) },  // pos 6
+  ];
+  return Array.from({ length: 6 }, (_, i) => ({ ...base[(i + rot) % 6], lbl: 'P' + (i + 1) }));
+}
+
+/* Hockey — 6 fixed starters */
+function hockeyPositions() {
+  return [
+    { ...fieldXY(.10, .50), lbl: 'GB' },
+    { ...fieldXY(.30, .33), lbl: 'D'  },
+    { ...fieldXY(.30, .67), lbl: 'D'  },
+    { ...fieldXY(.55, .50), lbl: 'C'  },
+    { ...fieldXY(.55, .22), lbl: 'AG' },
+    { ...fieldXY(.55, .78), lbl: 'AD' },
+  ];
+}
+
+/* American Football */
+function amFootballPositions(fm, tab) {
+  const los = PAD + PH * .5; // line of scrimmage y
+  const pts = [];
+  if (tab === 'attaque') {
+    const def = { 'I-Formation': 'i', 'Single Back': 'sb', 'Pistol': 'pist', 'Wildcat': 'wc' }[fm] || 'sg';
+    const ox = PAD + PW * 0.5;
+    // O-line (5 players)
+    for (let i = -2; i <= 2; i++) pts.push({ x: ox + i * PW * 0.09, y: los, lbl: i === 0 ? 'C' : 'OL' });
+    // TE
+    pts.push({ x: ox + PW * 0.27, y: los, lbl: 'TE' });
+    // Backfield
+    if (def === 'i') {
+      pts.push({ x: ox, y: los - PH * .10, lbl: 'QB' });
+      pts.push({ x: ox, y: los - PH * .18, lbl: 'FB' });
+      pts.push({ x: ox, y: los - PH * .26, lbl: 'HB' });
+      pts.push({ x: ox - PW * .28, y: los - PH * .06, lbl: 'WR' });
+      pts.push({ x: ox + PW * .33, y: los - PH * .06, lbl: 'WR' });
+    } else {
+      pts.push({ x: ox, y: los - PH * .18, lbl: 'QB' });
+      pts.push({ x: ox - PW * .14, y: los - PH * .08, lbl: 'RB' });
+      pts.push({ x: ox - PW * .30, y: los - PH * .06, lbl: 'WR' });
+      pts.push({ x: ox + PW * .35, y: los - PH * .06, lbl: 'WR' });
+      pts.push({ x: ox - PW * .22, y: los - PH * .20, lbl: 'SB' });
+    }
+  } else {
+    // Defense
+    const ox = PAD + PW * 0.5;
+    const dLine = { '3-4': [3, 4], 'Nickel': [4, 3], 'Dime': [4, 2] }[fm] || [4, 3];
+    const [dl, lb] = dLine;
+    for (let i = 0; i < dl; i++) pts.push({ x: ox + (i - (dl-1)/2) * PW * 0.11, y: los + PH * .05, lbl: i===0||i===dl-1 ? 'DE' : 'DT' });
+    for (let i = 0; i < lb; i++) pts.push({ x: ox + (i - (lb-1)/2) * PW * 0.13, y: los + PH * .16, lbl: 'LB' });
+    pts.push({ x: ox - PW * .40, y: los + PH * .08, lbl: 'CB' });
+    pts.push({ x: ox + PW * .40, y: los + PH * .08, lbl: 'CB' });
+    pts.push({ x: ox - PW * .22, y: los + PH * .26, lbl: 'SS' });
+    pts.push({ x: ox + PW * .22, y: los + PH * .26, lbl: 'FS' });
+  }
+  return pts.slice(0, 11);
+}
+
+/* Water polo */
+function waterPoloPositions(fm) {
+  const pts = [{ ...fieldXY(.08, .50), lbl: 'GB' }];
+  switch (fm) {
+    case '4-2':
+      pts.push({ ...fieldXY(.40, .25), lbl: '' }, { ...fieldXY(.40, .75), lbl: '' });
+      pts.push({ ...fieldXY(.60, .17), lbl: '' }, { ...fieldXY(.60, .50), lbl: '' }, { ...fieldXY(.60, .83), lbl: '' }, { ...fieldXY(.78, .50), lbl: '' });
+      break;
+    case '2-4':
+      pts.push({ ...fieldXY(.40, .33), lbl: '' }, { ...fieldXY(.40, .67), lbl: '' });
+      pts.push({ ...fieldXY(.58, .18), lbl: '' }, { ...fieldXY(.58, .42), lbl: '' }, { ...fieldXY(.58, .58), lbl: '' }, { ...fieldXY(.58, .82), lbl: '' });
+      break;
+    default: // 3-3
+      pts.push({ ...fieldXY(.40, .20), lbl: '' }, { ...fieldXY(.40, .50), lbl: '' }, { ...fieldXY(.40, .80), lbl: '' });
+      pts.push({ ...fieldXY(.60, .20), lbl: '' }, { ...fieldXY(.60, .50), lbl: '' }, { ...fieldXY(.60, .80), lbl: '' });
+  }
+  return pts;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  DRAWING HELPERS
+// ═══════════════════════════════════════════════════════════════════════════════
+function drawFormationGuides(positions) {
+  const isRugby = SPORT === 'Rugby';
+  // Indices de slots occupés (pour masquer le guide sous les tokens rugby)
+  const occupiedSlots = new Set(
+    placedPlayers.filter(p => !p.isBench && p.slotIdx != null).map(p => p.slotIdx)
+  );
+  positions.forEach((pos, i) => {
+    const isOccupied = isRugby && occupiedSlots.has(i);
+    const baseCol    = isRugby ? rugbySlotColor(i) : null;
+    // Fond coloré pour rugby, semi-transparent pour les autres
+    ctx.fillStyle = isRugby ? baseCol + '28' : 'rgba(0,0,0,.03)';
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, PLAYER_R, 0, Math.PI * 2); ctx.fill();
+    if (!isOccupied) {
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = isRugby ? baseCol + '99' : 'rgba(255,255,255,.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, PLAYER_R, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      if (pos.lbl) {
+        ctx.fillStyle = isRugby ? baseCol + 'cc' : 'rgba(255,255,255,.45)';
+        ctx.font = 'bold 9px Manrope,sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(pos.lbl, pos.x, pos.y);
+      }
+    } else {
+      ctx.setLineDash([]);
+    }
+  });
+}
+
+// ── Helpers label rugby ──────────────────────────────────────────────────────
+function truncateName(full) {
+  const s = (full || '').trim();
+  return s.length > 8 ? s.slice(0, 8) + '…' : s;
+}
+
+function drawRugbyNameLabel(cx, cy, r, text, slotNum) {
+  ctx.font = '600 8px Manrope,sans-serif';
+  const tw  = ctx.measureText(text).width + 8;
+  const th  = 12;
+  // Labels au-dessus : évite chevauchement avec la ligne du dessous
+  //   4 (2e ligne)  → label au-dessus pour dégager de la 1ère ligne
+  //   6 (Flanker G) → label au-dessus pour dégager de la 2e ligne
+  //   8 (N°8)       → label au-dessus pour dégager de la 2e ligne
+  const ABOVE      = new Set([4, 6, 8]);
+  // Bords extrêmes : label sur le côté pour rester dans le canvas
+  const SIDE_RIGHT = new Set([11]);   // Ailier G (bord gauche x≈.10) → label à DROITE
+  const SIDE_LEFT  = new Set([14]);   // Ailier D (bord droit x≈.88) → label à GAUCHE
+
+  if (slotNum && SIDE_RIGHT.has(slotNum)) {
+    const sx = cx + r + 4, sy = cy;
+    ctx.fillStyle = 'rgba(0,0,0,.65)';
+    ctx.fillRect(sx - 4, sy - th / 2, tw, th);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, sx, sy);
+  } else if (slotNum && SIDE_LEFT.has(slotNum)) {
+    const sx = cx - r - 4, sy = cy;
+    ctx.fillStyle = 'rgba(0,0,0,.65)';
+    ctx.fillRect(sx - tw + 4, sy - th / 2, tw, th);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, sx, sy);
+  } else {
+    const above = slotNum && ABOVE.has(slotNum);
+    // Léger décalage latéral pour Pilier G (1) et Pilier D (3)
+    let sx = cx;
+    if      (slotNum === 1) sx = cx - 10;
+    else if (slotNum === 3) sx = cx + 10;
+    const sy = above ? cy - r - th - 3 : cy + r + 2;
+    ctx.fillStyle = 'rgba(0,0,0,.65)';
+    ctx.fillRect(sx - tw / 2, sy, tw, th);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(text, sx, sy + 1.5);
+  }
+}
+
+function drawPlayerToken(x, y, player, r, small, slotNum) {
+  const col = SPORT === 'Rugby' ? COULEUR_1 : posColor(player.poste || '');
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  if (SPORT === 'Rugby') {
+    // Numéro de poste en grand au centre du cercle
+    const numStr = slotNum != null ? String(slotNum) : '';
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${small ? 9 : 13}px Manrope,sans-serif`;
+    ctx.fillText(numStr, x, y);
+    // Nom du joueur sous (ou à côté) du cercle — titulaires uniquement
+    if (!small) {
+      const fullName = ((player.prenom || '') + ' ' + (player.nom || '')).trim();
+      drawRugbyNameLabel(x, y, r, truncateName(fullName), slotNum);
+    }
+  } else {
+    // Autres sports : initiales + numéro si disponible
+    const initials = ((player.prenom||'?')[0] + (player.nom||'?')[0]).toUpperCase();
+    const numStr   = slotNum != null ? String(slotNum)
+                   : player.numero != null ? String(player.numero) : '';
+    if (numStr) {
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${small ? 8 : 11}px Manrope,sans-serif`;
+      ctx.fillText(numStr, x, y - (small ? 3 : 4));
+      ctx.fillStyle = 'rgba(255,255,255,.8)';
+      ctx.font = `bold ${small ? 6 : 8}px Manrope,sans-serif`;
+      ctx.fillText(initials, x, y + (small ? 4 : 6));
+    } else {
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${small ? 8 : 11}px Manrope,sans-serif`;
+      ctx.fillText(initials, x, y);
+    }
+  }
+}
+
+function drawEmptySlot(x, y, r, lbl) {
+  ctx.save();
+  ctx.setLineDash([4, 3]);
+  ctx.strokeStyle = 'rgba(0,85,164,.12)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(255,255,255,.22)';
+  ctx.font = '600 8px Manrope,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(lbl, x, y);
+  ctx.restore();
+}
+
+function drawFieldPlayers(positions) {
+  const fieldPlaced = placedPlayers.filter(p => !p.isBench);
+  drawFormationGuides(positions);
+  fieldPlaced.forEach(pp => {
+    // Rugby : le token se dessine toujours à la coordonnée du slot (sauf pendant le drag)
+    let dx = pp.x, dy = pp.y;
+    if (SPORT === 'Rugby' && pp.slotIdx != null && canvasDrag === null) {
+      const sp = positions[pp.slotIdx];
+      if (sp) { dx = sp.x; dy = sp.y; }
+    }
+    const slotNum = (SPORT === 'Rugby' && pp.slotIdx != null) ? pp.slotIdx + 1 : null;
+    drawPlayerToken(dx, dy, pp.player, PLAYER_R, false, slotNum);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  MAIN RENDER
+// ═══════════════════════════════════════════════════════════════════════════════
+function render() {
+  ctx.clearRect(0, 0, CW, CH);
+  drawTerrain();
+  const positions = getFormationPositions();
+  drawFieldPlayers(positions);
+  drawBench();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  UPDATE LIST UI
+// ═══════════════════════════════════════════════════════════════════════════════
+function updateListUI() {
+  const placedIds = new Set(placedPlayers.map(pp => String(pp.player.id)));
+  document.querySelectorAll('.player-item').forEach(el => {
+    el.classList.toggle('placed', placedIds.has(el.dataset.id));
+  });
+}
+
+function updateAvatarColors() {
+  document.querySelectorAll('.player-item').forEach(el => {
+    const av = document.getElementById('av-' + el.dataset.id);
+    if (!av) return;
+    if (SPORT === 'Rugby') {
+      av.style.background = rugbyPlayerColor({ poste: el.dataset.poste || '' });
+    } else {
+      av.style.background = posColor(el.dataset.poste || '');
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  DRAG & DROP — list → canvas
+// ═══════════════════════════════════════════════════════════════════════════════
+document.querySelectorAll('.player-item').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    const id = el.dataset.id;
+    dragFromList = PLAYERS[id];
+    if (!dragFromList) { e.preventDefault(); return; }
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', id);
+    const col = SPORT === 'Rugby' ? rugbyPlayerColor(dragFromList) : posColor(dragFromList.poste || '');
+    const g = document.createElement('div');
+    g.style.cssText = `position:fixed;top:-999px;left:-999px;width:42px;height:42px;border-radius:50%;
+      background:${col};border:2px solid #fff;display:flex;align-items:center;justify-content:center;
+      color:#fff;font-weight:700;font-size:13px;font-family:Manrope,sans-serif;
+      box-shadow:0 4px 12px rgba(0,0,0,.5);pointer-events:none;`;
+    // Rugby : numéro inconnu avant placement → afficher initiales
+    g.textContent = SPORT === 'Rugby'
+      ? ((dragFromList.prenom||'?')[0] + (dragFromList.nom||'?')[0]).toUpperCase()
+      : (dragFromList.numero != null ? dragFromList.numero : '?');
+    document.body.appendChild(g);
+    e.dataTransfer.setDragImage(g, 21, 21);
+    setTimeout(() => g.parentNode && g.parentNode.removeChild(g), 0);
+  });
+  el.addEventListener('dragend', () => { dragFromList = null; });
+});
+
+const pitchArea = document.getElementById('pitch-area');
+canvas.addEventListener('dragover', e => {
+  e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+  pitchArea.classList.add('drag-over');
+});
+canvas.addEventListener('dragleave', () => pitchArea.classList.remove('drag-over'));
+canvas.addEventListener('drop', e => {
+  e.preventDefault(); pitchArea.classList.remove('drag-over');
+  if (!dragFromList) return;
+  const pos = clientToCanvas(e.clientX, e.clientY);
+  const player = dragFromList;
+  dragFromList = null;
+  // Remove existing placement
+  placedPlayers = placedPlayers.filter(p => String(p.player.id) !== String(player.id));
+  if (pos.y >= TERRAIN_H) {
+    // Zone remplaçants
+    const bp = nearestBenchSlot(pos.x, pos.y, BENCH_R + 12);
+    if (bp !== null) {
+      placedPlayers = placedPlayers.filter(p => !(p.isBench && p.benchIdx === bp));
+      placedPlayers.push({ player, x: 0, y: 0, isBench: true, benchIdx: bp, slotIdx: null });
+    }
+  } else if (SPORT === 'Rugby') {
+    // Rugby : snap vers le slot fixe le plus proche
+    const slotIdx = nearestFormationSlot(pos.x, pos.y, PLAYER_R + 28);
+    if (slotIdx !== null) {
+      const sp = getFormationPositions()[slotIdx];
+      // Évincer un joueur déjà sur ce slot
+      placedPlayers = placedPlayers.filter(p => !(!p.isBench && p.slotIdx === slotIdx));
+      placedPlayers.push({ player, x: sp.x, y: sp.y, slotIdx, isBench: false, benchIdx: null });
+    }
+    // Si aucun slot proche → on n'ajoute pas le joueur
+  } else {
+    placedPlayers.push({ player, x: pos.x, y: pos.y, isBench: false, benchIdx: null, slotIdx: null });
+  }
+  render(); updateListUI();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  DRAG — canvas → canvas
+// ═══════════════════════════════════════════════════════════════════════════════
+canvas.addEventListener('mousedown', e => {
+  const pos = clientToCanvas(e.clientX, e.clientY);
+  for (let i = placedPlayers.length - 1; i >= 0; i--) {
+    const pp = placedPlayers[i];
+    let px, py;
+    if (pp.isBench) {
+      const bp = getBenchPositions()[pp.benchIdx];
+      px = bp?.x; py = bp?.y;
+    } else if (SPORT === 'Rugby' && pp.slotIdx != null) {
+      const sp = getFormationPositions()[pp.slotIdx];
+      px = sp?.x; py = sp?.y;
+      // Synchronise pp.x/pp.y avec le slot (point de départ du drag)
+      if (sp) { pp.x = sp.x; pp.y = sp.y; }
+    } else {
+      px = pp.x; py = pp.y;
+    }
+    if (Math.hypot(pos.x - (px||0), pos.y - (py||0)) <= PLAYER_R + 4) {
+      canvasDrag = { idx: i, offX: pos.x - (px||0), offY: pos.y - (py||0) };
+      canvas.style.cursor = 'grabbing';
+      break;
+    }
+  }
+});
+
+// ── Helpers tooltip ─────────────────────────────────────────────────────────
+const tooltip  = document.getElementById('canvas-tooltip');
+const ttName   = document.getElementById('tt-name');
+const ttPoste  = document.getElementById('tt-poste');
+
+function getPlayerAtPos(pos) {
+  for (let i = placedPlayers.length - 1; i >= 0; i--) {
+    const pp = placedPlayers[i];
+    let px, py, hitR;
+    if (pp.isBench) {
+      const bp = getBenchPositions()[pp.benchIdx];
+      px = bp?.x; py = bp?.y; hitR = BENCH_R;
+    } else if (SPORT === 'Rugby' && pp.slotIdx != null) {
+      const sp = getFormationPositions()[pp.slotIdx];
+      px = sp?.x; py = sp?.y; hitR = PLAYER_R;
+    } else { px = pp.x; py = pp.y; hitR = PLAYER_R; }
+    if (Math.hypot(pos.x - (px||0), pos.y - (py||0)) <= hitR) return pp;
+  }
+  return null;
+}
+
+function showTooltip(e, pp) {
+  const slotNum = (SPORT === 'Rugby' && pp.slotIdx != null) ? pp.slotIdx + 1 : null;
+  ttName.textContent  = (pp.player.prenom || '') + ' ' + (pp.player.nom || '');
+  ttPoste.textContent = slotNum ? `N°${slotNum} · ${pp.player.poste || ''}` : (pp.player.poste || '');
+  // Couleur du petit point selon groupe
+  ttPoste.style.color = slotNum
+    ? (slotNum <= 8 ? COULEUR_1 : COULEUR_2)
+    : '#6b7280';
+  tooltip.style.left    = (e.clientX + 16) + 'px';
+  tooltip.style.top     = (e.clientY - 14) + 'px';
+  tooltip.style.display = 'block';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+// ── mousemove (drag + hover tooltip) ────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  const pos = clientToCanvas(e.clientX, e.clientY);
+  if (canvasDrag !== null) {
+    hideTooltip();
+    const pp = placedPlayers[canvasDrag.idx];
+    const nx = pos.x - canvasDrag.offX;
+    const ny = pos.y - canvasDrag.offY;
+    if (ny >= TERRAIN_H) {
+      pp.isBench = true;
+      pp.benchIdx = nearestBenchSlot(nx, ny, BENCH_R + 16) ?? pp.benchIdx ?? 0;
+    } else {
+      pp.isBench = false; pp.x = nx; pp.y = ny;
+    }
+    render(); return;
+  }
+  const hit = getPlayerAtPos(pos);
+  if (hit) {
+    showTooltip(e, hit);
+    canvas.style.cursor = 'grab';
+  } else {
+    hideTooltip();
+    canvas.style.cursor = 'default';
+  }
+});
+
+canvas.addEventListener('mouseleave', hideTooltip);
+
+canvas.addEventListener('mouseup', e => {
+  if (canvasDrag === null) return;
+  const pp = placedPlayers[canvasDrag.idx];
+  if (!pp.isBench) {
+    if (SPORT === 'Rugby') {
+      // Snap vers le slot le plus proche après un drag canvas
+      const slotIdx = nearestFormationSlot(pp.x, pp.y, PLAYER_R + 44);
+      if (slotIdx !== null) {
+        // Évincer un autre joueur déjà sur la cible (par référence)
+        placedPlayers = placedPlayers.filter(p => p === pp || !(!p.isBench && p.slotIdx === slotIdx));
+        const sp = getFormationPositions()[slotIdx];
+        pp.x = sp.x; pp.y = sp.y; pp.slotIdx = slotIdx;
+      } else {
+        // Hors terrain → retirer le joueur
+        placedPlayers.splice(canvasDrag.idx, 1);
+        updateListUI();
+      }
+    } else {
+      if (pp.x < PAD - PLAYER_R || pp.x > PAD + PW + PLAYER_R ||
+          pp.y < PAD - PLAYER_R || pp.y > PAD + PH + PLAYER_R) {
+        placedPlayers.splice(canvasDrag.idx, 1);
+        updateListUI();
+      }
+    }
+  }
+  canvasDrag = null; canvas.style.cursor = ''; render();
+});
+
+/* Touch support (basic) */
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length !== 1) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  if (e.touches.length !== 1) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+}, { passive: false });
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  canvas.dispatchEvent(new MouseEvent('mouseup', {}));
+}, { passive: false });
+
+/* Double-click → remove */
+canvas.addEventListener('dblclick', e => {
+  const pos = clientToCanvas(e.clientX, e.clientY);
+  for (let i = placedPlayers.length - 1; i >= 0; i--) {
+    const pp = placedPlayers[i];
+    let px, py;
+    if (pp.isBench) {
+      const bp = getBenchPositions()[pp.benchIdx];
+      px = bp?.x; py = bp?.y;
+    } else if (SPORT === 'Rugby' && pp.slotIdx != null) {
+      const sp = getFormationPositions()[pp.slotIdx];
+      px = sp?.x; py = sp?.y;
+    } else { px = pp.x; py = pp.y; }
+    if (Math.hypot(pos.x - (px||0), pos.y - (py||0)) <= PLAYER_R) {
+      placedPlayers.splice(i, 1); render(); updateListUI(); break;
+    }
+  }
+});
+
+// Nearest bench slot helper
+function nearestBenchSlot(x, y, maxDist) {
+  const bps = getBenchPositions();
+  let best = null, bestD = maxDist;
+  bps.forEach(bp => {
+    const d = Math.hypot(x - bp.x, y - bp.y);
+    if (d < bestD) { bestD = d; best = bp.idx; }
+  });
+  return best;
+}
+
+// Nearest formation slot helper (pour rugby snap-to-slot)
+function nearestFormationSlot(x, y, maxDist) {
+  const positions = getFormationPositions();
+  let best = null, bestD = maxDist;
+  positions.forEach((pos, i) => {
+    const d = Math.hypot(x - pos.x, y - pos.y);
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  return best;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  TOOLBAR
+// ═══════════════════════════════════════════════════════════════════════════════
+function buildToolbar() {
+  const tb = document.getElementById('comp-toolbar');
+  tb.innerHTML = '';
+
+  if (SPORT === 'Football américain') {
+    // Offense/Defense tabs
+    const tabs = document.createElement('div');
+    tabs.className = 'am-tabs';
+    for (const [val, label] of [['attaque','⚔ Attaque'],['defense','🛡 Défense']]) {
+      const btn = document.createElement('button');
+      btn.className = 'am-tab' + (amTab === val ? ' active' : '');
+      btn.textContent = label;
+      btn.onclick = () => { amTab = val; buildToolbar(); render(); };
+      tabs.appendChild(btn);
+    }
+    tb.appendChild(tabs);
+    const fms = amTab === 'attaque' ? cfg.formationsAtt : cfg.formationsDef;
+    const cur = amTab === 'attaque' ? formation : formationDef;
+    tb.appendChild(makeSel(fms, cur, val => {
+      if (amTab === 'attaque') formation = val; else formationDef = val;
+      render();
+    }));
+  } else if (cfg.formations && cfg.formations.length > 1) {
+    const lbl = document.createElement('span');
+    lbl.className = 'toolbar-label';
+    lbl.textContent = 'Formation :';
+    tb.appendChild(lbl);
+    tb.appendChild(makeSel(cfg.formations, formation, val => { formation = val; render(); }));
+  } else {
+    const info = document.createElement('span');
+    info.className = 'toolbar-label';
+    info.textContent = SPORT === 'Basket' ? '🏀 Glissez les joueurs sur leurs postes' :
+                       SPORT === 'Rugby'  ? '🏉 Positions numérotées 1–15 — glissez les joueurs' :
+                       '💡 Glissez les joueurs sur le terrain';
+    tb.appendChild(info);
+  }
+
+  const hint = document.createElement('span');
+  hint.className = 'toolbar-hint';
+  hint.textContent = 'Glisser pour placer · Déplacer sur terrain · Double-clic pour retirer';
+  tb.appendChild(hint);
+}
+
+function makeSel(options, current, onChange) {
+  const sel = document.createElement('select');
+  sel.className = 'formation-sel';
+  options.forEach(f => {
+    const o = document.createElement('option');
+    o.value = f; o.textContent = f;
+    if (f === current) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => onChange(sel.value));
+  return sel;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  RESET & EXPORT
+// ═══════════════════════════════════════════════════════════════════════════════
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!confirm('Réinitialiser toute la composition ?')) return;
+  placedPlayers = []; render(); updateListUI();
+});
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const HDR = 48;
+  const expW = CW, expH = CH + HDR;
+  const eC = document.createElement('canvas');
+  eC.width = expW * DPR; eC.height = expH * DPR;
+  const ec = eC.getContext('2d');
+  ec.scale(DPR, DPR);
+  // Header
+  ec.fillStyle = '#0d0f14'; ec.fillRect(0, 0, expW, HDR);
+  ec.fillStyle = '#e4e8f0'; ec.font = 'bold 15px Manrope,sans-serif';
+  ec.textAlign = 'left'; ec.textBaseline = 'middle';
+  ec.fillText(CLUB_NAME, 16, HDR / 2);
+  const badge = SPORT === 'Football américain' ? `${SPORT} · ${amTab === 'attaque' ? formation : formationDef}` :
+                cfg.formations.length > 1 ? `${SPORT} · ${formation}` : SPORT;
+  ec.fillStyle = '#FFFFFF'; ec.font = 'bold 13px Manrope,sans-serif';
+  ec.textAlign = 'right';
+  ec.fillText(badge, expW - 16, HDR / 2);
+  ec.strokeStyle = '#1e2330'; ec.lineWidth = 1;
+  ec.beginPath(); ec.moveTo(0, HDR); ec.lineTo(expW, HDR); ec.stroke();
+  ec.drawImage(canvas, 0, HDR, CW, CH);
+  const a = document.createElement('a');
+  a.download = `compo-${CLUB_NAME.replace(/\s+/g, '-')}-${SPORT.replace(/\s+/g,'_')}.png`;
+  a.href = eC.toDataURL('image/png');
+  a.click();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════════════
+updateAvatarColors();
+buildToolbar();
+render();
+</script>
+{% endblock %}

@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}Convocation — {{ match.adversaire }}{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/matchs" style="font-size:.875rem;color:var(--muted);">← Matchs</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .cv-wrapper { flex:1; padding:2.5rem 2rem 4rem; max-width:760px; margin:0 auto; width:100%; }
+
+  /* ── Match header ── */
+  .cv-match-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); padding:1.25rem 1.5rem;
+    margin-bottom:1.75rem;
+    display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap;
+  }
+  .cv-match-icon { font-size:2rem; line-height:1; }
+  .cv-match-info { flex:1; min-width:0; }
+  .cv-match-title { font-size:1.15rem; font-weight:700; letter-spacing:-.02em; }
+  .cv-match-meta  { display:flex; gap:.75rem; flex-wrap:wrap; margin-top:.35rem; }
+  .cv-meta-item   { font-size:.8rem; color:var(--muted); display:flex; align-items:center; gap:.3rem; }
+  .badge-dom { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    background:rgba(0,85,164,.08); color:var(--accent); border:1px solid rgba(0,85,164,.15);
+    border-radius:4px; padding:2px 8px; }
+  .badge-ext { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    background:rgba(107,114,128,.12); color:var(--muted); border:1px solid rgba(107,114,128,.25);
+    border-radius:4px; padding:2px 8px; }
+
+  /* ── Section titles ── */
+  .cv-section-title {
+    font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--muted); margin-bottom:.75rem;
+  }
+
+  /* ── Heure du match ── */
+  .cv-heure-row { display:flex; align-items:center; gap:.75rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+  .cv-heure-row label { font-size:.82rem; color:var(--text); font-weight:500; }
+  .cv-heure-row input { width:110px; padding:.4rem .6rem; background:var(--bg);
+    border:1px solid var(--border); border-radius:var(--radius); color:var(--text);
+    font-size:.85rem; outline:none; }
+  .cv-heure-row input:focus { border-color:var(--accent); }
+
+  /* ── Joueur list ── */
+  .cv-list { display:flex; flex-direction:column; gap:.4rem; margin-bottom:1.5rem; }
+
+  .cv-joueur-row {
+    display:flex; align-items:center; gap:.75rem;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); padding:.65rem 1rem;
+    cursor:pointer; transition:border-color .15s, background .15s;
+    user-select:none;
+  }
+  .cv-joueur-row:hover:not(.disabled) { border-color:rgba(255,255,255,.35); }
+  .cv-joueur-row.selected { border-color:var(--accent); background:rgba(255,255,255,.04); }
+  .cv-joueur-row.disabled { opacity:.45; cursor:not-allowed; }
+
+  .cv-check {
+    width:18px; height:18px; border:1px solid var(--border); border-radius:5px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    font-size:.7rem; transition:all .12s;
+  }
+  .cv-joueur-row.selected .cv-check {
+    background:var(--accent); border-color:var(--accent); color:#fff;
+  }
+  .cv-joueur-row.selected .cv-check::after { content:'✓'; }
+
+  .cv-nom  { flex:1; font-size:.88rem; font-weight:500; }
+  .cv-poste { font-size:.72rem; color:var(--muted); }
+
+  .cv-statut-select {
+    padding:.3rem .55rem; background:var(--bg); border:1px solid var(--border);
+    border-radius:6px; color:var(--text); font-size:.78rem; outline:none;
+    display:none; cursor:pointer; transition:border-color .15s;
+  }
+  .cv-joueur-row.selected .cv-statut-select { display:block; }
+  .cv-statut-select:focus { border-color:var(--accent); }
+
+  .badge-indispo {
+    font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+    padding:2px 7px; border-radius:4px;
+  }
+  .badge-blesse  { background:rgba(231,76,60,.12);  color:#E74C3C; border:1px solid rgba(231,76,60,.25); }
+  .badge-suspen  { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+
+  /* ── Buttons ── */
+  .cv-actions { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:2rem; }
+  .btn-save { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.25rem;
+    background:var(--accent); color:#fff; border:none; border-radius:var(--radius);
+    font-size:.875rem; font-weight:600; cursor:pointer; transition:background .15s; }
+  .btn-save:hover { background:var(--accent-h); }
+  .btn-gen  { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.25rem;
+    background:transparent; color:var(--text); border:1px solid var(--border);
+    border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer;
+    transition:border-color .15s; }
+  .btn-gen:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* ── Message généré ── */
+  .cv-msg-wrap {
+    display:none; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); overflow:hidden; margin-bottom:1.5rem;
+  }
+  .cv-msg-wrap.visible { display:block; }
+  .cv-msg-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:.7rem 1rem; border-bottom:1px solid var(--border);
+    font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+  }
+  .btn-copy {
+    display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .8rem;
+    background:rgba(0,85,164,.07); color:var(--accent); border:1px solid rgba(0,85,164,.15);
+    border-radius:6px; font-size:.78rem; font-weight:600; cursor:pointer; transition:all .15s;
+  }
+  .btn-copy:hover { background:rgba(0,85,164,.12); }
+  .btn-copy.copied { background:rgba(46,204,113,.12); color:#2ECC71; border-color:rgba(46,204,113,.3); }
+  .cv-msg-body {
+    padding:1.1rem 1.25rem; font-size:.88rem; line-height:1.65;
+    white-space:pre-wrap; font-family:monospace; color:var(--text);
+  }
+
+  /* ── Compteur ── */
+  .cv-count { font-size:.8rem; color:var(--muted); margin-bottom:.6rem; }
+  .cv-count span { color:var(--accent); font-weight:600; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set today = '' %}
+<div class="cv-wrapper">
+
+  <!-- Match header -->
+  <div class="cv-match-card">
+    <div class="cv-match-icon">{{ sport_emoji }}</div>
+    <div class="cv-match-info">
+      <div class="cv-match-title">vs {{ match.adversaire }}</div>
+      <div class="cv-match-meta">
+        <span class="cv-meta-item">📅 {{ match.date_match | format_date }}</span>
+        {% if match.domicile %}
+          <span class="badge-dom">Domicile</span>
+        {% else %}
+          <span class="badge-ext">Extérieur</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+    <div style="margin-bottom:1rem;padding:.65rem 1rem;border-radius:var(--radius);
+      {% if cat == 'success' %}background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.25);color:#2ECC71;
+      {% else %}background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.25);color:#E74C3C;{% endif %}
+      font-size:.85rem;">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- Heure du match (pour le message) -->
+  <div class="cv-heure-row">
+    <label>🕐 Heure du match</label>
+    <input type="time" id="heure-match" value="{{ match.heure or '' }}" placeholder="—">
+    <span style="font-size:.78rem;color:var(--muted);">(utilisée dans le message uniquement)</span>
+  </div>
+
+  <!-- Formulaire convocations -->
+  <form method="POST" id="form-convocations">
+
+    <div class="cv-section-title">Joueurs convoqués</div>
+    <div class="cv-count">
+      <span id="count-selected">0</span> joueur(s) sélectionné(s) ·
+      <span id="count-tit">0</span> titulaire(s) pressenti(s) ·
+      <span id="count-rem">0</span> remplaçant(s)
+    </div>
+
+    <div class="cv-list" id="cv-list">
+      {% for j in effectif %}
+      {% set jid = j.id | string %}
+      {% set conv = conv_by_joueur.get(jid) %}
+      {% set ind = indispos.get(jid) %}
+      {% set is_indispo = ind is not none %}
+      {% set is_selected = conv is not none and not is_indispo %}
+
+      <div class="cv-joueur-row{% if is_selected %} selected{% endif %}{% if is_indispo %} disabled{% endif %}"
+           id="row-{{ jid }}"
+           {% if not is_indispo %}onclick="toggleJoueur('{{ jid }}')"{% endif %}
+           data-id="{{ jid }}">
+
+        <div class="cv-check"></div>
+
+        <div style="flex:1;min-width:0;">
+          <div class="cv-nom">{{ j.prenom }} {{ j.nom }}</div>
+          {% if j.poste %}<div class="cv-poste">{{ j.poste }}</div>{% endif %}
+          {% if is_indispo and ind.description %}
+            <div style="font-size:.68rem;color:var(--muted);margin-top:.15rem;font-style:italic;">
+              {{ ind.description }}
+            </div>
+          {% endif %}
+        </div>
+
+        {% if is_indispo %}
+          {% set ic = indispo_color(ind.type, ind.gravite or '') %}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.2rem;">
+            <span class="badge-indispo"
+                  style="background:{{ ic }}15;color:{{ ic }};border:1px solid {{ ic }}40;">
+              {{ ind.type }}{% if ind.gravite %} · {{ ind.gravite }}{% endif %}
+            </span>
+            {% if ind.date_retour_estimee %}
+              <span style="font-size:.65rem;color:var(--muted);">
+                retour ~{{ ind.date_retour_estimee[8:10] }}/{{ ind.date_retour_estimee[5:7] }}
+              </span>
+            {% endif %}
+          </div>
+        {% else %}
+          <input type="checkbox" name="joueur_ids" value="{{ jid }}"
+                 id="chk-{{ jid }}" style="display:none;"
+                 {% if is_selected %}checked{% endif %}>
+
+          <select name="statut_{{ jid }}" id="sel-{{ jid }}" class="cv-statut-select"
+                  onclick="event.stopPropagation();"
+                  onchange="updateCount()">
+            <option value="non_precise"{% if conv and conv.statut == 'non_precise' %} selected{% endif %}>Non précisé</option>
+            <option value="titulaire_pressenti"{% if conv and conv.statut == 'titulaire_pressenti' %} selected{% endif %}>Titulaire pressenti</option>
+            <option value="remplacant"{% if conv and conv.statut == 'remplacant' %} selected{% endif %}>Remplaçant</option>
+          </select>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if user_role != 'joueur' %}
+    <div class="cv-actions">
+      <button type="submit" class="btn-save">💾 Enregistrer les convocations</button>
+      <button type="button" class="btn-gen" onclick="genererMessage()">✉️ Générer le message</button>
+    </div>
+    {% endif %}
+  </form>
+
+  <!-- Message généré -->
+  <div class="cv-msg-wrap" id="cv-msg-wrap">
+    <div class="cv-msg-header">
+      <span>Message prêt à copier</span>
+      <button class="btn-copy" id="btn-copy" onclick="copyMessage()">📋 Copier</button>
+    </div>
+    <div class="cv-msg-body" id="cv-msg-body"></div>
+  </div>
+
+</div>
+
+<script>
+const NOM_CLUB   = {{ nom_club | tojson }};
+const ADVERSAIRE = {{ match.adversaire | tojson }};
+const DATE_MATCH = {{ (match.date_match or '') | tojson }};
+const DOMICILE   = {{ match.domicile | tojson }};
+const SPORT_EMO  = {{ sport_emoji | tojson }};
+
+/* ── Sélection joueur ── */
+function toggleJoueur(jid) {
+  const row = document.getElementById('row-' + jid);
+  const chk = document.getElementById('chk-' + jid);
+  const sel = document.getElementById('sel-' + jid);
+  if (!row || !chk) return;
+  const selected = row.classList.toggle('selected');
+  chk.checked = selected;
+  updateCount();
+}
+
+/* ── Compteur ── */
+function updateCount() {
+  let total = 0, tit = 0, rem = 0;
+  document.querySelectorAll('#cv-list .cv-joueur-row.selected').forEach(row => {
+    total++;
+    const jid = row.dataset.id;
+    const sel = document.getElementById('sel-' + jid);
+    if (sel) {
+      if (sel.value === 'titulaire_pressenti') tit++;
+      else if (sel.value === 'remplacant') rem++;
+    }
+  });
+  document.getElementById('count-selected').textContent = total;
+  document.getElementById('count-tit').textContent = tit;
+  document.getElementById('count-rem').textContent = rem;
+}
+
+/* ── Formatage date ── */
+function formatDate(str) {
+  if (!str) return '?';
+  const d = new Date(str + 'T12:00:00');
+  const jours = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const mois  = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  return jours[d.getDay()] + ' ' + d.getDate() + ' ' + mois[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function dateLimit(str) {
+  if (!str) return '?';
+  const d = new Date(str + 'T12:00:00');
+  d.setDate(d.getDate() - 2);
+  const mois = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  return d.getDate() + ' ' + mois[d.getMonth()];
+}
+
+/* ── Génération message ── */
+function genererMessage() {
+  const heure = document.getElementById('heure-match').value || 'heure à confirmer';
+
+  // Collect selected players
+  const tit = [], rem = [], np = [];
+  document.querySelectorAll('#cv-list .cv-joueur-row.selected').forEach(row => {
+    const jid = row.dataset.id;
+    const nomEl = row.querySelector('.cv-nom');
+    const nom = nomEl ? nomEl.textContent.trim() : '?';
+    const sel = document.getElementById('sel-' + jid);
+    const statut = sel ? sel.value : 'non_precise';
+    if (statut === 'titulaire_pressenti') tit.push(nom);
+    else if (statut === 'remplacant') rem.push(nom);
+    else np.push(nom);
+  });
+
+  if (tit.length + rem.length + np.length === 0) {
+    alert('Sélectionnez au moins un joueur avant de générer le message.');
+    return;
+  }
+
+  const lieu = DOMICILE ? 'Domicile' : 'Extérieur';
+  let msg = SPORT_EMO + ' CONVOCATION — ' + NOM_CLUB + '\n';
+  msg += '📅 ' + formatDate(DATE_MATCH) + ' à ' + heure + '\n';
+  msg += '🆚 ' + NOM_CLUB + ' vs ' + ADVERSAIRE + '\n';
+  msg += '📍 ' + lieu + '\n\n';
+  msg += '✅ Joueurs convoqués :\n';
+
+  if (tit.length) {
+    msg += '\n⬤ Titulaires pressentis :\n';
+    tit.forEach(n => msg += '  • ' + n + '\n');
+  }
+  if (rem.length) {
+    msg += '\n○ Remplaçants :\n';
+    rem.forEach(n => msg += '  • ' + n + '\n');
+  }
+  if (np.length) {
+    msg += '\n• ' + np.join('\n• ') + '\n';
+  }
+
+  msg += '\n⚠️ Merci de confirmer votre présence avant le ' + dateLimit(DATE_MATCH) + ' en répondant à ce message.\n';
+  msg += '\n🎽 ' + NOM_CLUB;
+
+  document.getElementById('cv-msg-body').textContent = msg;
+  document.getElementById('cv-msg-wrap').classList.add('visible');
+  document.getElementById('cv-msg-wrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── Copie ── */
+function copyMessage() {
+  const text = document.getElementById('cv-msg-body').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('btn-copy');
+    btn.textContent = '✓ Copié !';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copier'; btn.classList.remove('copied'); }, 2500);
+  });
+}
+
+// Init count
+updateCount();
+</script>
+{% endblock %}

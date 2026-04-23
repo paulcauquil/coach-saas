@@ -1,0 +1,784 @@
+{% extends "base.html" %}
+{% block title %}Matchs — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .page-wrapper { flex:1; padding:2.5rem 2rem; max-width:900px; margin:0 auto; width:100%; }
+
+  /* Header */
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .page-header-left { display:flex; align-items:center; gap:.75rem; }
+  .page-title { font-size:1.4rem; font-weight:700; letter-spacing:-.02em; }
+  .count-badge { background:rgba(0,85,164,.08); color:var(--accent); border:1px solid rgba(0,85,164,.15); border-radius:20px; font-size:.75rem; font-weight:600; padding:2px 10px; }
+
+  .btn-add { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; transition:background .15s,transform .1s; }
+  .btn-add:hover  { background:var(--accent-h); color:#fff; }
+  .btn-add:active { transform:scale(.97); }
+
+  /* Match list */
+  .match-list { display:flex; flex-direction:column; gap:.65rem; }
+  .match-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.25rem; display:grid; grid-template-columns:120px 1fr auto auto; align-items:center; gap:1rem; transition:border-color .15s; }
+  .match-card:hover { border-color:rgba(0,85,164,.18); }
+
+  .match-meta { display:flex; flex-direction:column; gap:.3rem; }
+  .match-date { font-size:.88rem; font-weight:600; color:var(--text); }
+  .match-lieu { display:inline-block; font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; border-radius:4px; padding:2px 7px; width:fit-content; }
+  .lieu-dom { background:rgba(0,85,164,.08); color:var(--accent); border:1px solid rgba(0,85,164,.15); }
+  .lieu-ext { background:rgba(107,114,128,.12); color:var(--muted); border:1px solid rgba(107,114,128,.25); }
+
+  .match-info { min-width:0; }
+  .match-adversaire { font-size:1rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .match-adversaire span { color:var(--muted); font-weight:400; font-size:.85rem; }
+  .match-detail { font-size:.75rem; color:var(--muted); margin-top:.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .match-score-block { display:flex; flex-direction:column; align-items:center; gap:.3rem; min-width:70px; }
+  .match-score { font-size:1.35rem; font-weight:800; letter-spacing:-.02em; line-height:1; }
+  .score-pending { color:var(--muted); font-size:1rem; font-weight:500; }
+  .result-badge { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; border-radius:4px; padding:2px 7px; }
+  .result-v { background:rgba(46,204,113,.15); color:#2ECC71; border:1px solid rgba(46,204,113,.3); }
+  .result-n { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+  .result-d { background:rgba(231,76,60,.15); color:#E74C3C; border:1px solid rgba(231,76,60,.3); }
+
+  .match-actions { display:flex; gap:.4rem; flex-shrink:0; }
+  .btn-icon { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid var(--border); border-radius:7px; background:transparent; color:var(--muted); font-size:.85rem; cursor:pointer; transition:border-color .15s,color .15s,background .15s; }
+  .btn-icon:hover     { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+  .btn-icon.del:hover { border-color:var(--error);  color:var(--error);  background:rgba(231,76,60,.08); }
+  .btn-icon.video { border-color:rgba(0,85,164,.25); color:var(--accent); background:rgba(0,85,164,.05); font-size:.8rem; }
+  .btn-icon.video:hover { background:rgba(0,85,164,.12); border-color:var(--accent); }
+
+  /* Video embed */
+  .video-embed-wrap { margin-top:.5rem; border-radius:var(--radius); overflow:hidden; aspect-ratio:16/9; }
+  .video-embed-wrap iframe { width:100%; height:100%; border:none; display:block; }
+  .video-link-btn { display:inline-flex; align-items:center; gap:.4rem; margin-top:.5rem; padding:.4rem .85rem; background:rgba(0,85,164,.07); border:1px solid rgba(0,85,164,.2); border-radius:var(--radius); color:var(--accent); font-size:.82rem; font-weight:600; text-decoration:none; transition:background .15s; }
+  .video-link-btn:hover { background:rgba(0,85,164,.13); }
+
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--muted); }
+  .empty-state .empty-icon { font-size:3rem; margin-bottom:1rem; }
+  .empty-state p { font-size:.9rem; margin-bottom:1.5rem; }
+
+  /* Modals */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:100; align-items:center; justify-content:center; padding:1rem; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:2rem; width:100%; max-width:530px; max-height:92vh; overflow-y:auto; }
+  .modal h3 { font-size:1.1rem; font-weight:700; margin-bottom:1.4rem; letter-spacing:-.01em; }
+  .modal-footer { display:flex; gap:.6rem; margin-top:1.4rem; }
+  .btn-submit { flex:1; padding:.65rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.9rem; font-weight:600; cursor:pointer; transition:background .15s; }
+  .btn-submit:hover { background:var(--accent-h); }
+  .btn-cancel { padding:.65rem 1rem; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:var(--radius); font-size:.9rem; cursor:pointer; transition:border-color .15s; }
+  .btn-cancel:hover { border-color:var(--muted); }
+
+  .score-row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+
+  .radio-group { display:flex; gap:.5rem; margin-top:.2rem; }
+  .radio-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.55rem; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; font-size:.85rem; color:var(--muted); transition:border-color .15s,color .15s,background .15s; user-select:none; }
+  .radio-btn input { display:none; }
+  .radio-btn.selected { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+
+  textarea { width:100%; padding:.65rem .9rem; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-size:.9rem; font-family:var(--font); outline:none; resize:vertical; min-height:58px; transition:border-color .15s; }
+  textarea:focus { border-color:var(--accent); }
+
+  /* Score mode toggle */
+  .score-mode-wrap { margin-bottom:.75rem; }
+  .score-mode-toggle { display:flex; gap:.4rem; margin-top:.3rem; margin-bottom:.65rem; }
+  .mode-btn { flex:1; padding:.42rem .6rem; border:1px solid var(--border); border-radius:var(--radius); background:transparent; color:var(--muted); font-size:.78rem; font-weight:600; cursor:pointer; transition:all .15s; }
+  .mode-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+
+  /* Player stats builder */
+  .stats-builder { display:flex; flex-direction:column; gap:.5rem; margin-top:.4rem; }
+  .stats-player-row { display:flex; align-items:center; gap:.5rem; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:.5rem .65rem; flex-wrap:wrap; }
+  .stats-player-row select { flex:1; min-width:120px; padding:.35rem .5rem; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:.82rem; outline:none; }
+  .stats-player-row select:focus { border-color:var(--accent); }
+  .stat-field-group { display:flex; align-items:center; gap:.3rem; }
+  .stat-field-group label { font-size:.72rem; color:var(--muted); white-space:nowrap; margin:0; text-transform:none; letter-spacing:0; font-weight:400; }
+  .stat-field-group input { width:44px; padding:.28rem .35rem; text-align:center; font-size:.82rem; }
+  .btn-rm-row { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--muted); font-size:.9rem; cursor:pointer; flex-shrink:0; transition:all .15s; margin-left:auto; }
+  .btn-rm-row:hover { border-color:var(--error); color:var(--error); background:rgba(231,76,60,.08); }
+  .btn-add-player { display:inline-flex; align-items:center; gap:.3rem; margin-top:.3rem; padding:.38rem .75rem; background:rgba(0,85,164,.05); border:1px solid rgba(0,85,164,.15); border-radius:var(--radius); color:var(--accent); font-size:.8rem; font-weight:600; cursor:pointer; transition:background .15s; }
+  .btn-add-player:hover { background:rgba(255,255,255,.16); }
+
+  /* Detail section */
+  .detail-section { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:.9rem 1rem; }
+  .detail-section-title { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:.8rem; }
+  .detail-cols { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+  .detail-col-head { font-size:.8rem; font-weight:600; color:var(--text); margin-bottom:.55rem; text-align:center; padding-bottom:.35rem; border-bottom:1px solid var(--border); }
+  .detail-row { display:flex; align-items:center; gap:.4rem; margin-bottom:.3rem; }
+  .detail-row label { font-size:.76rem; color:var(--muted); flex:1; margin:0; text-transform:none; letter-spacing:0; font-weight:400; }
+  .pts-hint { font-size:.62rem; color:var(--accent); font-weight:700; }
+  .detail-row input[type="number"] { width:50px; padding:.28rem .38rem; text-align:center; font-size:.82rem; }
+  .detail-total { font-size:.86rem; font-weight:700; color:var(--accent); text-align:center; margin-top:.55rem; padding:.3rem; background:rgba(0,85,164,.05); border-radius:6px; }
+
+  /* Volley sets */
+  .vset-row { display:flex; align-items:center; gap:.5rem; margin-bottom:.3rem; }
+  .vset-label { font-size:.76rem; color:var(--muted); min-width:42px; }
+  .vset-row input { width:48px; padding:.28rem .38rem; text-align:center; font-size:.82rem; }
+  .vset-sep { color:var(--muted); font-weight:600; }
+  .vsets-total { font-size:.9rem; font-weight:700; margin-top:.65rem; text-align:center; }
+  .vsets-total .vs-num { color:var(--accent); font-size:1.05rem; }
+
+  /* Compo picker */
+  .compo-section-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:.5rem; }
+  .compo-cols { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+  .compo-col-title { font-size:.75rem; font-weight:600; color:var(--text); margin-bottom:.4rem; padding-bottom:.3rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:.35rem; }
+  .compo-player-list { display:flex; flex-direction:column; gap:.3rem; }
+  .compo-player-item { display:flex; align-items:center; gap:.5rem; padding:.35rem .5rem; border-radius:6px; cursor:pointer; transition:background .1s; user-select:none; }
+  .compo-player-item:hover { background:rgba(0,85,164,.04); }
+  .compo-player-item input[type="checkbox"] { display:none; }
+  .compo-check { width:16px; height:16px; border:1px solid var(--border); border-radius:4px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:.65rem; transition:all .1s; }
+  .compo-player-item.checked .compo-check { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .compo-player-item.checked .compo-check::after { content:'✓'; }
+  .compo-player-name { font-size:.82rem; flex:1; }
+  .compo-player-item.checked .compo-player-name { color:var(--text); font-weight:500; }
+  .compo-player-item:not(.checked) .compo-player-name { color:var(--muted); }
+  .compo-empty { font-size:.78rem; color:var(--muted); font-style:italic; padding:.25rem 0; }
+
+  @media (max-width:640px) {
+    .match-card { grid-template-columns:1fr 1fr; grid-template-rows:auto auto; }
+    .match-meta  { grid-column:1; }
+    .match-info  { grid-column:1/-1; }
+    .match-score-block { grid-column:2; grid-row:1; justify-self:end; }
+    .match-actions { grid-column:1/-1; justify-content:flex-end; }
+    .detail-cols { grid-template-columns:1fr; }
+    .compo-cols { grid-template-columns:1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set sport_icons = {'Football':'⚽','Rugby':'🏉','Basket':'🏀','Handball':'🤾','Volley-ball':'🏐','Hockey sur glace':'🏒','Football américain':'🏈','Water-polo':'🤽'} %}
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1 class="page-title">{{ sport_icons.get(sport,'⚽') }} Matchs</h1>
+      <span class="count-badge">{{ matchs|length }} match{{ 's' if matchs|length != 1 }}</span>
+    </div>
+    {% if user_role != 'joueur' %}
+    <button class="btn-add" onclick="openModal('modal-ajouter')">+ Ajouter un match</button>
+    {% endif %}
+  </div>
+
+  {% if matchs %}
+  <div class="match-list">
+    {% for m in matchs %}
+    {% set sn = m.score_nous %}
+    {% set se = m.score_eux %}
+    {% if sn is not none and se is not none %}
+      {% if sn > se %}{% set result = 'v' %}
+      {% elif sn == se %}{% set result = 'n' %}
+      {% else %}{% set result = 'd' %}{% endif %}
+    {% else %}{% set result = '' %}{% endif %}
+
+    <div class="match-card">
+      <div class="match-meta">
+        <div class="match-date">{{ m.date_match | format_date }}</div>
+        {% if m.domicile %}<span class="match-lieu lieu-dom">Domicile</span>
+        {% else %}<span class="match-lieu lieu-ext">Extérieur</span>{% endif %}
+      </div>
+
+      <div class="match-info">
+        <div class="match-adversaire"><span>vs</span> {{ m.adversaire }}</div>
+        {% if m.marqueurs %}
+          <div class="match-detail">⚡ {{ m.marqueurs }}</div>
+        {% endif %}
+        {% if m.lien_video %}
+          {% set vid = m.lien_video %}
+          {% if 'youtube.com/watch?v=' in vid %}
+            {% set vid_id = vid.split('v=')[1].split('&')[0] %}
+            <div class="video-embed-wrap" style="margin-top:.65rem;">
+              <iframe src="https://www.youtube.com/embed/{{ vid_id }}" allowfullscreen loading="lazy"></iframe>
+            </div>
+          {% elif 'youtu.be/' in vid %}
+            {% set vid_id = vid.split('youtu.be/')[1].split('?')[0] %}
+            <div class="video-embed-wrap" style="margin-top:.65rem;">
+              <iframe src="https://www.youtube.com/embed/{{ vid_id }}" allowfullscreen loading="lazy"></iframe>
+            </div>
+          {% else %}
+            <a class="video-link-btn" href="{{ vid }}" target="_blank" rel="noopener">▶ Voir la vidéo du match</a>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      <div class="match-score-block">
+        {% if sn is not none and se is not none %}
+          <div class="match-score">{{ sn }}–{{ se }}</div>
+          {% if result == 'v' %}<span class="result-badge result-v">Victoire</span>
+          {% elif result == 'n' %}<span class="result-badge result-n">Nul</span>
+          {% else %}<span class="result-badge result-d">Défaite</span>{% endif %}
+        {% else %}
+          <div class="match-score score-pending">–</div>
+          <span class="result-badge" style="background:rgba(107,114,128,.1);color:var(--muted);border:1px solid var(--border);">À jouer</span>
+        {% endif %}
+        {% if m.lien_video %}<span style="font-size:.75rem;color:var(--accent);margin-top:.15rem;">▶</span>{% endif %}
+      </div>
+
+      {% if user_role != 'joueur' %}
+      <div class="match-actions">
+        {% if m.score_nous is none %}
+        <a href="/convocations/{{ m.id }}" class="btn-icon" title="Convoquer" style="text-decoration:none;font-size:.78rem;width:auto;padding:0 .6rem;gap:.25rem;display:inline-flex;align-items:center;">
+          📋 Convoquer
+        </a>
+        {% endif %}
+        <button class="btn-icon" title="Modifier"
+          onclick='openEdit({{ {"id":m.id|string,"date_match":m.date_match[:10] if m.date_match else "","adversaire":m.adversaire,"score_nous":m.score_nous,"score_eux":m.score_eux,"domicile":m.domicile,"marqueurs":m.marqueurs or "","notes":m.notes or "","lien_video":m.lien_video or "","detail_n":m.detail_score_nous,"detail_e":m.detail_score_eux} | tojson }})'>✏️</button>
+        <form method="POST" action="/matchs/supprimer/{{ m.id }}" style="margin:0;"
+              onsubmit="return confirm('Supprimer ce match ?')">
+          <button type="submit" class="btn-icon del" title="Supprimer">🗑</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🏟️</div>
+    <p>Aucun match enregistré pour l'instant.</p>
+    {% if user_role != 'joueur' %}
+    <button class="btn-add" onclick="openModal('modal-ajouter')">+ Ajouter le premier match</button>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+
+{# ═══════════════════════ MACRO compo section ═══════════════════════ #}
+{% macro compo_section(pfx) %}
+<div class="form-group" style="margin-top:.5rem;">
+  <label>Composition du match</label>
+  <div style="display:flex;gap:.5rem;margin-bottom:.6rem;">
+    <button type="button" class="mode-btn active" id="btn-compo-tit-{{pfx}}" onclick="setCompoTab('{{pfx}}','tit')">⬤ Titulaires</button>
+    <button type="button" class="mode-btn" id="btn-compo-rem-{{pfx}}" onclick="setCompoTab('{{pfx}}','rem')">○ Remplaçants</button>
+  </div>
+  <div id="compo-tit-{{pfx}}" class="compo-player-list">
+    {% if effectif %}
+      {% for j in effectif %}
+      <div class="compo-player-item" id="compo-{{pfx}}-tit-{{ j.id }}" onclick="toggleCompoPlayer('{{pfx}}','tit','{{ j.id }}')">
+        <div class="compo-check"></div>
+        <span class="compo-player-name">{{ j.prenom }} {{ j.nom }}{% if j.poste %} <span style="font-size:.7rem;color:var(--muted);">· {{ j.poste }}</span>{% endif %}</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <span class="compo-empty">Aucun joueur dans l'effectif.</span>
+    {% endif %}
+  </div>
+  <div id="compo-rem-{{pfx}}" class="compo-player-list" style="display:none;">
+    {% if effectif %}
+      {% for j in effectif %}
+      <div class="compo-player-item" id="compo-{{pfx}}-rem-{{ j.id }}" onclick="toggleCompoPlayer('{{pfx}}','rem','{{ j.id }}')">
+        <div class="compo-check"></div>
+        <span class="compo-player-name">{{ j.prenom }} {{ j.nom }}{% if j.poste %} <span style="font-size:.7rem;color:var(--muted);">· {{ j.poste }}</span>{% endif %}</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      <span class="compo-empty">Aucun joueur dans l'effectif.</span>
+    {% endif %}
+  </div>
+  <input type="hidden" name="compo_json" id="compo-json-{{pfx}}" value="[]">
+</div>
+{% endmacro %}
+
+{# ═══════════════════════ MACRO score section ═══════════════════════ #}
+{% macro score_section(pfx) %}
+{% if vocab.detail %}
+  <div class="score-mode-wrap form-group">
+    <label>Score — {{ vocab.score_label }}</label>
+    <div class="score-mode-toggle">
+      <button type="button" class="mode-btn active" id="btn-simple-{{pfx}}" onclick="setMode('{{pfx}}','simple')">⚡ Score direct</button>
+      <button type="button" class="mode-btn"        id="btn-detail-{{pfx}}" onclick="setMode('{{pfx}}','detail')">📊 Détail</button>
+    </div>
+
+    <div id="mode-simple-{{pfx}}">
+      <div class="score-row">
+        <div class="form-group" style="margin:0">
+          <label>{{ vocab.nous }}</label>
+          <input type="number" id="sn-{{pfx}}-v" min="0" placeholder="–" oninput="syncSc('{{pfx}}','n',this.value)">
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>{{ vocab.eux }}</label>
+          <input type="number" id="se-{{pfx}}-v" min="0" placeholder="–" oninput="syncSc('{{pfx}}','e',this.value)">
+        </div>
+      </div>
+    </div>
+
+    <div id="mode-detail-{{pfx}}" style="display:none;">
+      {% if vocab.detail == 'rugby' %}
+      <div class="detail-section">
+        <div class="detail-section-title">Détail des points</div>
+        <div class="detail-cols">
+          <div>
+            <div class="detail-col-head">Notre équipe</div>
+            <div class="detail-row"><label>Essais <span class="pts-hint">×5 pts</span></label><input type="number" id="rug-{{pfx}}-ess-n" min="0" value="0" oninput="calcRugby('{{pfx}}')"></div>
+            <div class="detail-row"><label>Transformations <span class="pts-hint">×2 pts</span></label><input type="number" id="rug-{{pfx}}-tf-n"  min="0" value="0" oninput="calcRugby('{{pfx}}')"></div>
+            <div class="detail-row"><label>Pénalités <span class="pts-hint">×3 pts</span></label><input type="number" id="rug-{{pfx}}-pen-n" min="0" value="0" oninput="calcRugby('{{pfx}}')"></div>
+            <div class="detail-row"><label>Drops <span class="pts-hint">×3 pts</span></label><input type="number" id="rug-{{pfx}}-drp-n" min="0" value="0" oninput="calcRugby('{{pfx}}')"></div>
+            <div class="detail-total">= <span id="rug-{{pfx}}-tot-n">0</span> pts</div>
+          </div>
+          <div>
+            <div class="detail-col-head">Adversaire</div>
+            <div class="detail-row"><label>Essais <span class="pts-hint">×5 pts</span></label><input type="number" id="rug-{{pfx}}-ess-e" min="0" value="0" oninput="calcRugby('{{pfx}}')"></div>
+            <div class="detail-row"><label>Transformations <span class="pts-hint">×2 pts</span></label><input type="number" id="rug-{{pfx}}-tf-e"  min="0" value="0" oninput="calcRugby('{{pfx}}')"></div>
+            <div class="detail-row"><label>Pénalités <span class="pts-hint">×3 pts</span></label><input type="number" id="rug-{{pfx}}-pen-e" min="0" value="0" oninput="calcRugby('{{pfx}}')"></div>
+            <div class="detail-row"><label>Drops <span class="pts-hint">×3 pts</span></label><input type="number" id="rug-{{pfx}}-drp-e" min="0" value="0" oninput="calcRugby('{{pfx}}')"></div>
+            <div class="detail-total">= <span id="rug-{{pfx}}-tot-e">0</span> pts</div>
+          </div>
+        </div>
+      </div>
+      {% elif vocab.detail == 'volley' %}
+      <div class="detail-section">
+        <div class="detail-section-title">Scores par set</div>
+        {% for s in range(1,6) %}
+        <div class="vset-row">
+          <span class="vset-label">Set {{s}}{% if s > 3 %} <span style="font-size:.62rem;color:var(--muted);">opt.</span>{% endif %}</span>
+          <input type="number" id="vset-{{pfx}}-{{s}}-n" min="0" placeholder="–" oninput="calcVolley('{{pfx}}')">
+          <span class="vset-sep">–</span>
+          <input type="number" id="vset-{{pfx}}-{{s}}-e" min="0" placeholder="–" oninput="calcVolley('{{pfx}}')">
+        </div>
+        {% endfor %}
+        <div class="vsets-total">Sets gagnés : <span class="vs-num" id="vsets-{{pfx}}-n">0</span> – <span class="vs-num" id="vsets-{{pfx}}-e">0</span></div>
+      </div>
+      {% elif vocab.detail == 'amfoot' %}
+      <div class="detail-section">
+        <div class="detail-section-title">Détail des points</div>
+        <div class="detail-cols">
+          <div>
+            <div class="detail-col-head">Notre équipe</div>
+            <div class="detail-row"><label>Touchdowns <span class="pts-hint">×6</span></label><input type="number" id="af-{{pfx}}-td-n" min="0" value="0" oninput="calcAmFoot('{{pfx}}')"></div>
+            <div class="detail-row"><label>Field Goals <span class="pts-hint">×3</span></label><input type="number" id="af-{{pfx}}-fg-n" min="0" value="0" oninput="calcAmFoot('{{pfx}}')"></div>
+            <div class="detail-row"><label>Extra Points <span class="pts-hint">×1</span></label><input type="number" id="af-{{pfx}}-ep-n" min="0" value="0" oninput="calcAmFoot('{{pfx}}')"></div>
+            <div class="detail-row"><label>Safeties <span class="pts-hint">×2</span></label><input type="number" id="af-{{pfx}}-sf-n" min="0" value="0" oninput="calcAmFoot('{{pfx}}')"></div>
+            <div class="detail-total">= <span id="af-{{pfx}}-tot-n">0</span> pts</div>
+          </div>
+          <div>
+            <div class="detail-col-head">Adversaire</div>
+            <div class="detail-row"><label>Touchdowns <span class="pts-hint">×6</span></label><input type="number" id="af-{{pfx}}-td-e" min="0" value="0" oninput="calcAmFoot('{{pfx}}')"></div>
+            <div class="detail-row"><label>Field Goals <span class="pts-hint">×3</span></label><input type="number" id="af-{{pfx}}-fg-e" min="0" value="0" oninput="calcAmFoot('{{pfx}}')"></div>
+            <div class="detail-row"><label>Extra Points <span class="pts-hint">×1</span></label><input type="number" id="af-{{pfx}}-ep-e" min="0" value="0" oninput="calcAmFoot('{{pfx}}')"></div>
+            <div class="detail-row"><label>Safeties <span class="pts-hint">×2</span></label><input type="number" id="af-{{pfx}}-sf-e" min="0" value="0" oninput="calcAmFoot('{{pfx}}')"></div>
+            <div class="detail-total">= <span id="af-{{pfx}}-tot-e">0</span> pts</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+{% else %}
+  <div class="score-row">
+    <div class="form-group">
+      <label>{{ vocab.nous }}</label>
+      <input type="number" name="score_nous" id="sn-{{pfx}}-direct" min="0" placeholder="–">
+    </div>
+    <div class="form-group">
+      <label>{{ vocab.eux }}</label>
+      <input type="number" name="score_eux" id="se-{{pfx}}-direct" min="0" placeholder="–">
+    </div>
+  </div>
+{% endif %}
+{% endmacro %}
+
+
+<!-- ══════════ MODAL AJOUTER ══════════ -->
+<div id="modal-ajouter" class="modal-overlay" onclick="closeOnBackdrop(event,'modal-ajouter')">
+  <div class="modal">
+    <h3>Ajouter un match</h3>
+    <form method="POST" action="/matchs/ajouter" id="form-ajouter">
+      <input type="hidden" name="domicile" id="domicile-add" value="true">
+      {% if vocab.detail %}
+      <input type="hidden" name="score_nous"        id="sn-add">
+      <input type="hidden" name="score_eux"         id="se-add">
+      <input type="hidden" name="detail_score_nous" id="dn-add">
+      <input type="hidden" name="detail_score_eux"  id="de-add">
+      {% endif %}
+
+      <div class="form-group">
+        <label>Date du match *</label>
+        <input type="date" name="date_match" required>
+      </div>
+      <div class="form-group">
+        <label>Adversaire *</label>
+        <input type="text" name="adversaire" placeholder="ex : RC Toulon" required>
+      </div>
+      <div class="form-group">
+        <label>Lieu</label>
+        <div class="radio-group">
+          <label class="radio-btn selected" id="dom-add" onclick="setLieu('add','true')">
+            <input type="radio" name="_lieu_add" value="true" checked> 🏠 Domicile
+          </label>
+          <label class="radio-btn" id="ext-add" onclick="setLieu('add','false')">
+            <input type="radio" name="_lieu_add" value="false"> ✈️ Extérieur
+          </label>
+        </div>
+      </div>
+
+      {{ score_section('add') }}
+
+      {% if match_stats_fields %}
+      <div class="form-group">
+        <label>{{ vocab.marqueurs or 'Stats joueurs' }}</label>
+        <div class="stats-builder" id="stats-rows-add"></div>
+        <button type="button" class="btn-add-player" onclick="addStatsRow('add')">+ Ajouter un joueur</button>
+        <input type="hidden" name="stats_joueurs_json" id="stats-json-add" value="[]">
+      </div>
+      {% endif %}
+
+      {{ compo_section('add') }}
+
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" id="notes-add" placeholder="Résumé, observations…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Lien vidéo <span style="font-weight:400;color:var(--muted);font-size:.8rem;">(optionnel)</span></label>
+        <input type="url" name="lien_video" id="lien-video-add" placeholder="https://youtube.com/watch?v=…">
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-ajouter')">Annuler</button>
+        <button type="submit" class="btn-submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════ MODAL MODIFIER ══════════ -->
+<div id="modal-modifier" class="modal-overlay" onclick="closeOnBackdrop(event,'modal-modifier')">
+  <div class="modal">
+    <h3>Modifier le match</h3>
+    <form method="POST" id="form-modifier">
+      <input type="hidden" name="domicile" id="domicile-edit" value="true">
+      {% if vocab.detail %}
+      <input type="hidden" name="score_nous"        id="sn-edit">
+      <input type="hidden" name="score_eux"         id="se-edit">
+      <input type="hidden" name="detail_score_nous" id="dn-edit">
+      <input type="hidden" name="detail_score_eux"  id="de-edit">
+      {% endif %}
+
+      <div class="form-group">
+        <label>Date du match *</label>
+        <input type="date" name="date_match" id="edit-date" required>
+      </div>
+      <div class="form-group">
+        <label>Adversaire *</label>
+        <input type="text" name="adversaire" id="edit-adversaire" placeholder="ex : RC Toulon" required>
+      </div>
+      <div class="form-group">
+        <label>Lieu</label>
+        <div class="radio-group">
+          <label class="radio-btn" id="dom-edit" onclick="setLieu('edit','true')">
+            <input type="radio" name="_lieu_edit" value="true"> 🏠 Domicile
+          </label>
+          <label class="radio-btn" id="ext-edit" onclick="setLieu('edit','false')">
+            <input type="radio" name="_lieu_edit" value="false"> ✈️ Extérieur
+          </label>
+        </div>
+      </div>
+
+      {{ score_section('edit') }}
+
+      {% if match_stats_fields %}
+      <div class="form-group">
+        <label>{{ vocab.marqueurs or 'Stats joueurs' }}</label>
+        <div class="stats-builder" id="stats-rows-edit"></div>
+        <button type="button" class="btn-add-player" onclick="addStatsRow('edit')">+ Ajouter un joueur</button>
+        <input type="hidden" name="stats_joueurs_json" id="stats-json-edit" value="[]">
+      </div>
+      {% endif %}
+
+      {{ compo_section('edit') }}
+
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" id="notes-edit" placeholder="Résumé, observations…"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Lien vidéo <span style="font-weight:400;color:var(--muted);font-size:.8rem;">(optionnel)</span></label>
+        <input type="url" name="lien_video" id="lien-video-edit" placeholder="https://youtube.com/watch?v=…">
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-modifier')">Annuler</button>
+        <button type="submit" class="btn-submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<script>
+const SPORT       = {{ sport | tojson }};
+const DETAIL_TYPE = {{ (vocab.detail or '') | tojson }};
+const scoreMode   = { add: 'simple', edit: 'simple' };
+
+/* ── Utilitaires ─────────────────────────────────────────── */
+function sv(id, val) { const e = document.getElementById(id); if (e) e.value = val ?? ''; }
+function gn(id)      { return parseInt(document.getElementById(id)?.value || 0) || 0; }
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeOnBackdrop(e, id) { if (e.target.id === id) closeModal(id); }
+
+/* ── Lieu ─────────────────────────────────────────────────── */
+function setLieu(ctx, val) {
+  sv('domicile-' + ctx, val);
+  document.getElementById('dom-' + ctx).classList.toggle('selected', val === 'true');
+  document.getElementById('ext-' + ctx).classList.toggle('selected', val === 'false');
+}
+
+/* ── Score mode toggle (sports avec détail) ──────────────── */
+function setMode(pfx, mode) {
+  scoreMode[pfx] = mode;
+  document.getElementById('mode-simple-' + pfx).style.display = mode === 'simple' ? '' : 'none';
+  document.getElementById('mode-detail-' + pfx).style.display = mode === 'detail' ? '' : 'none';
+  document.getElementById('btn-simple-' + pfx).classList.toggle('active', mode === 'simple');
+  document.getElementById('btn-detail-' + pfx).classList.toggle('active', mode === 'detail');
+}
+
+/* ── Sync score direct → hidden ──────────────────────────── */
+function syncSc(pfx, side, val) {
+  sv((side === 'n' ? 'sn-' : 'se-') + pfx, val);
+}
+
+/* ── Rugby ───────────────────────────────────────────────── */
+function calcRugby(pfx) {
+  const n = gn('rug-'+pfx+'-ess-n')*5 + gn('rug-'+pfx+'-tf-n')*2 + gn('rug-'+pfx+'-pen-n')*3 + gn('rug-'+pfx+'-drp-n')*3;
+  const e = gn('rug-'+pfx+'-ess-e')*5 + gn('rug-'+pfx+'-tf-e')*2 + gn('rug-'+pfx+'-pen-e')*3 + gn('rug-'+pfx+'-drp-e')*3;
+  document.getElementById('rug-'+pfx+'-tot-n').textContent = n;
+  document.getElementById('rug-'+pfx+'-tot-e').textContent = e;
+  sv('sn-'+pfx, n); sv('se-'+pfx, e);
+}
+
+/* ── Volley ──────────────────────────────────────────────── */
+function calcVolley(pfx) {
+  let n = 0, e = 0;
+  for (let s = 1; s <= 5; s++) {
+    const vn = parseInt(document.getElementById('vset-'+pfx+'-'+s+'-n')?.value ?? '') ?? NaN;
+    const ve = parseInt(document.getElementById('vset-'+pfx+'-'+s+'-e')?.value ?? '') ?? NaN;
+    if (!isNaN(vn) && !isNaN(ve)) { if (vn > ve) n++; else if (ve > vn) e++; }
+  }
+  document.getElementById('vsets-'+pfx+'-n').textContent = n;
+  document.getElementById('vsets-'+pfx+'-e').textContent = e;
+  sv('sn-'+pfx, n); sv('se-'+pfx, e);
+}
+
+/* ── Football américain ──────────────────────────────────── */
+function calcAmFoot(pfx) {
+  const n = gn('af-'+pfx+'-td-n')*6 + gn('af-'+pfx+'-fg-n')*3 + gn('af-'+pfx+'-ep-n') + gn('af-'+pfx+'-sf-n')*2;
+  const e = gn('af-'+pfx+'-td-e')*6 + gn('af-'+pfx+'-fg-e')*3 + gn('af-'+pfx+'-ep-e') + gn('af-'+pfx+'-sf-e')*2;
+  document.getElementById('af-'+pfx+'-tot-n').textContent = n;
+  document.getElementById('af-'+pfx+'-tot-e').textContent = e;
+  sv('sn-'+pfx, n); sv('se-'+pfx, e);
+}
+
+/* ── Sérialisation détail → JSON avant envoi ─────────────── */
+function serializeDetail(pfx) {
+  if (!DETAIL_TYPE) return;
+  if (scoreMode[pfx] !== 'detail') return;
+  let dn, de;
+  if (DETAIL_TYPE === 'rugby') {
+    dn = { essais:gn('rug-'+pfx+'-ess-n'), transfo:gn('rug-'+pfx+'-tf-n'), penalites:gn('rug-'+pfx+'-pen-n'), drops:gn('rug-'+pfx+'-drp-n') };
+    de = { essais:gn('rug-'+pfx+'-ess-e'), transfo:gn('rug-'+pfx+'-tf-e'), penalites:gn('rug-'+pfx+'-pen-e'), drops:gn('rug-'+pfx+'-drp-e') };
+  } else if (DETAIL_TYPE === 'volley') {
+    dn = {}; de = {};
+    for (let s = 1; s <= 5; s++) {
+      const vn = document.getElementById('vset-'+pfx+'-'+s+'-n')?.value;
+      const ve = document.getElementById('vset-'+pfx+'-'+s+'-e')?.value;
+      if (vn !== '' && vn != null) dn['set'+s+'_n'] = parseInt(vn)||0;
+      if (ve !== '' && ve != null) de['set'+s+'_e'] = parseInt(ve)||0;
+    }
+  } else if (DETAIL_TYPE === 'amfoot') {
+    dn = { td:gn('af-'+pfx+'-td-n'), fg:gn('af-'+pfx+'-fg-n'), ep:gn('af-'+pfx+'-ep-n'), safety:gn('af-'+pfx+'-sf-n') };
+    de = { td:gn('af-'+pfx+'-td-e'), fg:gn('af-'+pfx+'-fg-e'), ep:gn('af-'+pfx+'-ep-e'), safety:gn('af-'+pfx+'-sf-e') };
+  }
+  sv('dn-'+pfx, JSON.stringify(dn));
+  sv('de-'+pfx, JSON.stringify(de));
+}
+
+document.getElementById('form-ajouter').addEventListener('submit', () => { serializeDetail('add'); serializeStatsJson('add'); serializeCompoJson('add'); });
+document.getElementById('form-modifier').addEventListener('submit', () => { serializeDetail('edit'); serializeStatsJson('edit'); serializeCompoJson('edit'); });
+
+/* ── Compo picker ────────────────────────────────────────── */
+const COMPOS_BY_MATCH = {{ compos_by_match | tojson }};
+
+// compoState[pfx] = { joueur_id: 'titulaire'|'remplaçant' }
+const compoState = { add: {}, edit: {} };
+const compoTab   = { add: 'tit', edit: 'tit' };
+
+function setCompoTab(pfx, tab) {
+  compoTab[pfx] = tab;
+  document.getElementById('compo-tit-' + pfx).style.display = tab === 'tit' ? '' : 'none';
+  document.getElementById('compo-rem-' + pfx).style.display = tab === 'rem' ? '' : 'none';
+  document.getElementById('btn-compo-tit-' + pfx).classList.toggle('active', tab === 'tit');
+  document.getElementById('btn-compo-rem-' + pfx).classList.toggle('active', tab === 'rem');
+}
+
+function toggleCompoPlayer(pfx, tab, joueurId) {
+  const statut = tab === 'tit' ? 'titulaire' : 'remplaçant';
+  const el = document.getElementById('compo-' + pfx + '-' + tab + '-' + joueurId);
+  if (!el) return;
+  const isChecked = el.classList.contains('checked');
+  if (isChecked) {
+    el.classList.remove('checked');
+    delete compoState[pfx][joueurId];
+  } else {
+    // Uncheck from the other tab if present
+    const otherTab = tab === 'tit' ? 'rem' : 'tit';
+    const otherEl  = document.getElementById('compo-' + pfx + '-' + otherTab + '-' + joueurId);
+    if (otherEl) otherEl.classList.remove('checked');
+    el.classList.add('checked');
+    compoState[pfx][joueurId] = statut;
+  }
+}
+
+function serializeCompoJson(pfx) {
+  const result = Object.entries(compoState[pfx]).map(([jid, statut]) => ({
+    joueur_id: jid, statut: statut,
+  }));
+  document.getElementById('compo-json-' + pfx).value = JSON.stringify(result);
+}
+
+function loadCompoState(pfx, entries) {
+  // Reset
+  compoState[pfx] = {};
+  ['tit','rem'].forEach(tab => {
+    document.querySelectorAll('#compo-' + tab + '-' + pfx + ' .compo-player-item')
+             .forEach(el => el.classList.remove('checked'));
+  });
+  entries.forEach(({ joueur_id, statut }) => {
+    const tab = statut === 'titulaire' ? 'tit' : 'rem';
+    const el  = document.getElementById('compo-' + pfx + '-' + tab + '-' + joueur_id);
+    if (el) el.classList.add('checked');
+    compoState[pfx][joueur_id] = statut;
+  });
+}
+
+/* ── Stats joueurs builder ───────────────────────────────── */
+const EFFECTIF        = {{ effectif | tojson }};
+const STATS_BY_MATCH  = {{ stats_by_match | tojson }};
+const MATCH_SF        = {{ match_stats_fields | tojson }};  // [[field, label], ...]
+
+function buildPlayerRow(pfx, joueur_id, vals) {
+  const row = document.createElement('div');
+  row.className = 'stats-player-row';
+
+  // Player select
+  const sel = document.createElement('select');
+  sel.className = 'stats-joueur';
+  sel.innerHTML = '<option value="">— Joueur —</option>' +
+    EFFECTIF.map(j => `<option value="${j.id}"${j.id === joueur_id ? ' selected' : ''}>${j.prenom} ${j.nom}</option>`).join('');
+  row.appendChild(sel);
+
+  // Stat fields
+  MATCH_SF.forEach(([field, label]) => {
+    const g = document.createElement('div');
+    g.className = 'stat-field-group';
+    const lbl = document.createElement('label');
+    lbl.textContent = label;
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = '0'; inp.placeholder = '0';
+    inp.dataset.field = field;
+    inp.value = vals && vals[field] ? vals[field] : '';
+    g.appendChild(lbl); g.appendChild(inp);
+    row.appendChild(g);
+  });
+
+  // Remove button
+  const rm = document.createElement('button');
+  rm.type = 'button'; rm.className = 'btn-rm-row'; rm.textContent = '×';
+  rm.onclick = () => row.remove();
+  row.appendChild(rm);
+
+  return row;
+}
+
+function addStatsRow(pfx, joueur_id, vals) {
+  const container = document.getElementById('stats-rows-' + pfx);
+  container.appendChild(buildPlayerRow(pfx, joueur_id || '', vals || {}));
+}
+
+function serializeStatsJson(pfx) {
+  const container = document.getElementById('stats-rows-' + pfx);
+  if (!container) return;
+  const rows = container.querySelectorAll('.stats-player-row');
+  const result = [];
+  rows.forEach(row => {
+    const sel = row.querySelector('.stats-joueur');
+    if (!sel || !sel.value) return;
+    const entry = { joueur_id: sel.value };
+    row.querySelectorAll('input[data-field]').forEach(inp => {
+      entry[inp.dataset.field] = parseInt(inp.value || 0) || 0;
+    });
+    result.push(entry);
+  });
+  document.getElementById('stats-json-' + pfx).value = JSON.stringify(result);
+}
+
+/* ── Pré-remplissage modal modifier ─────────────────────── */
+function openEdit(m) {
+  document.getElementById('form-modifier').action = '/matchs/modifier/' + m.id;
+  sv('edit-date',       m.date_match);
+  sv('edit-adversaire', m.adversaire);
+  setLieu('edit', m.domicile ? 'true' : 'false');
+
+  // Pré-remplir stats joueurs
+  const statsContainer = document.getElementById('stats-rows-edit');
+  if (statsContainer) {
+    statsContainer.innerHTML = '';
+    const existing = STATS_BY_MATCH[m.id] || [];
+    existing.forEach(entry => addStatsRow('edit', entry.joueur_id, entry));
+  }
+
+  // Pré-remplir composition
+  loadCompoState('edit', COMPOS_BY_MATCH[m.id] || []);
+  setCompoTab('edit', 'tit');
+
+  if (DETAIL_TYPE) {
+    // Toujours démarrer en mode simple avec les scores existants
+    setMode('edit', 'simple');
+    sv('sn-edit-v', m.score_nous ?? '');
+    sv('se-edit-v', m.score_eux  ?? '');
+    sv('sn-edit',   m.score_nous ?? '');
+    sv('se-edit',   m.score_eux  ?? '');
+
+    // Si détail disponible : pré-remplir et passer en mode détail
+    if (m.detail_n) {
+      if (DETAIL_TYPE === 'rugby') {
+        sv('rug-edit-ess-n', m.detail_n.essais    || 0); sv('rug-edit-ess-e', (m.detail_e||{}).essais    || 0);
+        sv('rug-edit-tf-n',  m.detail_n.transfo   || 0); sv('rug-edit-tf-e',  (m.detail_e||{}).transfo   || 0);
+        sv('rug-edit-pen-n', m.detail_n.penalites || 0); sv('rug-edit-pen-e', (m.detail_e||{}).penalites || 0);
+        sv('rug-edit-drp-n', m.detail_n.drops     || 0); sv('rug-edit-drp-e', (m.detail_e||{}).drops     || 0);
+        setMode('edit','detail'); calcRugby('edit');
+      } else if (DETAIL_TYPE === 'volley') {
+        for (let s = 1; s <= 5; s++) {
+          sv('vset-edit-'+s+'-n', (m.detail_n||{})['set'+s+'_n'] ?? '');
+          sv('vset-edit-'+s+'-e', (m.detail_e||{})['set'+s+'_e'] ?? '');
+        }
+        setMode('edit','detail'); calcVolley('edit');
+      } else if (DETAIL_TYPE === 'amfoot') {
+        sv('af-edit-td-n', m.detail_n.td     || 0); sv('af-edit-td-e', (m.detail_e||{}).td     || 0);
+        sv('af-edit-fg-n', m.detail_n.fg     || 0); sv('af-edit-fg-e', (m.detail_e||{}).fg     || 0);
+        sv('af-edit-ep-n', m.detail_n.ep     || 0); sv('af-edit-ep-e', (m.detail_e||{}).ep     || 0);
+        sv('af-edit-sf-n', m.detail_n.safety || 0); sv('af-edit-sf-e', (m.detail_e||{}).safety || 0);
+        setMode('edit','detail'); calcAmFoot('edit');
+      }
+    }
+  } else {
+    sv('sn-edit-direct', m.score_nous ?? '');
+    sv('se-edit-direct', m.score_eux  ?? '');
+  }
+
+  sv('notes-edit',      m.notes);
+  sv('lien-video-edit', m.lien_video);
+  openModal('modal-modifier');
+}
+</script>
+{% endblock %}

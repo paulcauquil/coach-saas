@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Analyse adversaire — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .page-wrapper { flex:1; padding:2.5rem 2rem; max-width:980px; margin:0 auto; width:100%; }
+
+  .page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .page-title  { font-size:1.4rem; font-weight:700; letter-spacing:-.02em; }
+  .page-sub    { font-size:.85rem; color:var(--muted); margin-top:.25rem; }
+
+  .btn-primary { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; transition:background .15s; text-decoration:none; white-space:nowrap; }
+  .btn-primary:hover { background:var(--accent-h); color:#fff; }
+
+  .analyses-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:1rem; }
+
+  .analyse-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; display:flex; flex-direction:column; gap:.75rem; transition:border-color .15s; }
+  .analyse-card:hover { border-color:rgba(255,255,255,.4); }
+
+  .card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:.5rem; }
+  .card-adversaire { font-size:1rem; font-weight:700; }
+  .card-saison { font-size:.7rem; color:var(--muted); background:rgba(107,114,128,.12); border:1px solid var(--border); border-radius:20px; padding:2px 8px; white-space:nowrap; flex-shrink:0; }
+
+  .card-badges { display:flex; flex-wrap:wrap; gap:.35rem; }
+  .badge { font-size:.67rem; font-weight:700; padding:2px 8px; border-radius:4px; }
+  .badge-style { background:rgba(0,85,164,.07); color:var(--accent); border:1px solid rgba(0,85,164,.12); }
+  .badge-sup  { background:rgba(231,76,60,.1); color:#E74C3C; border:1px solid rgba(231,76,60,.25); }
+  .badge-sim  { background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.25); }
+  .badge-inf  { background:rgba(46,204,113,.1); color:#2ECC71; border:1px solid rgba(46,204,113,.25); }
+
+  .card-date { font-size:.72rem; color:var(--muted); }
+
+  .card-actions { display:flex; gap:.4rem; margin-top:.25rem; }
+  .btn-open { flex:1; padding:.5rem .75rem; background:transparent; border:1px solid var(--border); color:var(--text); border-radius:var(--radius); font-size:.8rem; font-weight:600; cursor:pointer; text-decoration:none; text-align:center; transition:all .15s; }
+  .btn-open:hover { border-color:var(--accent); color:var(--accent); background:rgba(255,255,255,.07); }
+  .btn-del { padding:.5rem .65rem; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:var(--radius); font-size:.8rem; cursor:pointer; transition:all .15s; }
+  .btn-del:hover { border-color:var(--error); color:var(--error); background:rgba(231,76,60,.06); }
+
+  .empty-state { text-align:center; padding:4rem 2rem; color:var(--muted); }
+  .empty-icon  { font-size:3rem; margin-bottom:1rem; }
+  .empty-state p { font-size:.9rem; margin-bottom:1.5rem; line-height:1.6; }
+
+  .sql-notice { background:rgba(0,85,164,.04); border:1px solid rgba(0,85,164,.12); border-radius:var(--radius); padding:1rem 1.25rem; font-size:.82rem; color:var(--muted); margin-bottom:1.5rem; }
+  .sql-notice strong { color:var(--accent); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">🔍 Analyse adversaire</h1>
+      <p class="page-sub">Préparez vos matchs avec des fiches tactiques structurées.</p>
+    </div>
+    {% if user_role != 'joueur' %}<a href="/analyse-adversaire/nouveau" class="btn-primary">+ Nouvelle fiche</a>{% endif %}
+  </div>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+    <div style="padding:.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:.875rem;
+         background:{{ 'rgba(46,204,113,.1)' if cat=='success' else 'rgba(231,76,60,.1)' }};
+         border:1px solid {{ 'rgba(46,204,113,.3)' if cat=='success' else 'rgba(231,76,60,.3)' }};
+         color:{{ '#2ECC71' if cat=='success' else '#E74C3C' }};">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  {% endwith %}
+
+  {% if analyses %}
+  <div class="analyses-grid">
+    {% for a in analyses %}
+    <div class="analyse-card">
+      <div class="card-top">
+        <div class="card-adversaire">{{ a.nom_adversaire }}</div>
+        <span class="card-saison">{{ a.saison }}</span>
+      </div>
+      <div class="card-badges">
+        {% if a.style_jeu %}
+          <span class="badge badge-style">{{ a.style_jeu }}</span>
+        {% endif %}
+        {% if a.niveau_estime %}
+          {% set nc = 'badge-sup' if a.niveau_estime == 'Supérieur' else ('badge-inf' if a.niveau_estime == 'Inférieur' else 'badge-sim') %}
+          <span class="badge {{ nc }}">{{ a.niveau_estime }}</span>
+        {% endif %}
+      </div>
+      {% if a.updated_at %}
+      <div class="card-date">Modifiée le {{ a.updated_at[:10] }}</div>
+      {% endif %}
+      <div class="card-actions">
+        <a href="/analyse-adversaire/{{ a.id }}" class="btn-open">Ouvrir la fiche →</a>
+        {% if user_role != 'joueur' %}
+        <form method="POST" action="/analyse-adversaire/{{ a.id }}/supprimer" style="margin:0;"
+              onsubmit="return confirm('Supprimer cette fiche d\'analyse ?')">
+          <button type="submit" class="btn-del" title="Supprimer">🗑</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <p>Aucune fiche d'analyse pour le moment.<br>Créez votre première fiche pour préparer votre prochain match.</p>
+    {% if user_role != 'joueur' %}<a href="/analyse-adversaire/nouveau" class="btn-primary">+ Créer la première fiche</a>{% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

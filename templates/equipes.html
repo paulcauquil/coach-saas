@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Gestion des équipes — Tactix{% endblock %}
+
+{% block nav_right %}
+  <div style="display:flex;align-items:center;gap:1.5rem;">
+    <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
+    <a href="/deconnexion" style="font-size:.875rem;color:var(--muted);">Déconnexion</a>
+  </div>
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .page-wrapper { flex:1; padding:2.5rem 2rem; max-width:980px; margin:0 auto; width:100%; }
+  .page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .page-title { font-size:1.4rem; font-weight:700; letter-spacing:-.02em; }
+  .page-sub   { font-size:.85rem; color:var(--muted); margin-top:.25rem; }
+  .btn-add { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; transition:background .15s; }
+  .btn-add:hover { background:var(--accent-h); }
+
+  /* Sections */
+  .section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:1.5rem; overflow:hidden; }
+  .section-hdr { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; border-bottom:1px solid var(--border); }
+  .section-hdr h2 { font-size:.9rem; font-weight:700; }
+  .section-body { padding:1.25rem; }
+
+  /* Équipe cards */
+  .equipes-grid { display:flex; flex-direction:column; gap:.75rem; }
+  .equipe-card { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:.9rem 1rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+  .eq-icon { width:38px; height:38px; border-radius:8px; background:rgba(0,85,164,.08); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+  .eq-body { flex:1; min-width:0; }
+  .eq-nom  { font-size:.88rem; font-weight:600; }
+  .eq-sub  { font-size:.74rem; color:var(--muted); margin-top:.1rem; }
+  .eq-actions { display:flex; gap:.4rem; }
+  .btn-icon { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--muted); font-size:.8rem; cursor:pointer; transition:all .15s; }
+  .btn-icon:hover     { border-color:var(--accent); color:var(--accent); background:rgba(0,85,164,.05); }
+  .btn-icon.del:hover { border-color:var(--error);  color:var(--error);  background:rgba(231,76,60,.08); }
+
+  /* Invitation cards */
+  .inv-card { display:flex; align-items:center; gap:1rem; padding:.75rem 1rem; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); flex-wrap:wrap; }
+  .inv-code { font-family:monospace; font-size:.95rem; font-weight:700; letter-spacing:.1em; color:var(--accent); background:rgba(0,85,164,.05); border:1px solid rgba(0,85,164,.12); border-radius:6px; padding:.25rem .6rem; }
+  .inv-meta { flex:1; font-size:.75rem; color:var(--muted); }
+  .inv-role { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:20px; }
+  .role-coach  { background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.25); }
+  .role-joueur { background:rgba(46,204,113,.1);  color:#2ECC71; border:1px solid rgba(46,204,113,.25); }
+
+  /* Membres table */
+  table { width:100%; border-collapse:collapse; font-size:.84rem; }
+  th { padding:.5rem .9rem; text-align:left; font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); border-bottom:1px solid var(--border); }
+  td { padding:.6rem .9rem; border-bottom:1px solid var(--border); }
+  tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:rgba(255,255,255,.02); }
+  .role-badge { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:20px; }
+  .rb-coach   { background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.25); }
+  .rb-joueur  { background:rgba(46,204,113,.1);  color:#2ECC71; border:1px solid rgba(46,204,113,.25); }
+
+  .empty-box { padding:2rem; text-align:center; color:var(--muted); font-size:.85rem; }
+
+  /* Modal */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:100; align-items:center; justify-content:center; padding:1rem; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:2rem; width:100%; max-width:440px; }
+  .modal h3 { font-size:1.05rem; font-weight:700; margin-bottom:1.25rem; }
+  .modal-footer { display:flex; gap:.6rem; margin-top:1.25rem; }
+  .btn-cancel { padding:.65rem 1rem; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:var(--radius); font-size:.875rem; cursor:pointer; }
+  .btn-submit-m { flex:1; padding:.65rem; background:var(--accent); color:#fff; border:none; border-radius:var(--radius); font-size:.875rem; font-weight:600; cursor:pointer; }
+  .btn-submit-m:hover { background:var(--accent-h); }
+  .form-group { margin-bottom:1rem; }
+  .form-group label { display:block; font-size:.78rem; font-weight:600; color:var(--muted); margin-bottom:.35rem; }
+  .form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+
+  /* URL invite */
+  .invite-url { font-size:.72rem; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:.4rem .6rem; font-family:monospace; word-break:break-all; color:var(--muted); margin-top:.35rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Gestion des équipes</h1>
+      <p class="page-sub">Créez vos équipes et invitez vos coachs et joueurs.</p>
+    </div>
+    <button class="btn-add" onclick="openModal('modal-add-equipe')">+ Nouvelle équipe</button>
+  </div>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in msgs %}
+    <div style="padding:.75rem 1rem;border-radius:var(--radius);margin-bottom:1rem;font-size:.875rem;
+         background:{{ 'rgba(46,204,113,.1)' if cat=='success' else 'rgba(231,76,60,.1)' }};
+         border:1px solid {{ 'rgba(46,204,113,.3)' if cat=='success' else 'rgba(231,76,60,.3)' }};
+         color:{{ '#2ECC71' if cat=='success' else '#E74C3C' }};">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- ══ Équipes ══ -->
+  <div class="section">
+    <div class="section-hdr">
+      <h2>Équipes du club</h2>
+      <span style="font-size:.75rem;color:var(--muted);">{{ equipes | length }} équipe{{ 's' if equipes | length != 1 }}</span>
+    </div>
+    <div class="section-body">
+      {% if equipes %}
+      <div class="equipes-grid">
+        {% set sport_icons = {'Football':'⚽','Rugby':'🏉','Basket':'🏀','Handball':'🤾','Volley-ball':'🏐','Hockey sur glace':'🏒','Football américain':'🏈','Water-polo':'🤽'} %}
+        {% for eq in equipes %}
+        <div class="equipe-card">
+          <div class="eq-icon">{{ sport_icons.get(eq.sport, '🏆') }}</div>
+          <div class="eq-body">
+            <div class="eq-nom">{{ eq.nom_equipe }}</div>
+            <div class="eq-sub">{{ eq.sport }} · {{ eq.categorie or 'Seniors' }}</div>
+          </div>
+          <div class="eq-actions">
+            <button class="btn-add" style="font-size:.75rem;padding:.4rem .7rem;"
+              onclick='openInvite({{ {"id":eq.id,"nom":eq.nom_equipe} | tojson }})'>
+              Inviter
+            </button>
+            <form method="POST" action="/equipes/supprimer/{{ eq.id }}" style="margin:0;"
+                  onsubmit="return confirm('Supprimer {{ eq.nom_equipe }} ?')">
+              <button type="submit" class="btn-icon del" title="Supprimer">🗑</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-box">Aucune équipe créée. Commencez par ajouter une équipe.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ══ Invitations actives ══ -->
+  <div class="section">
+    <div class="section-hdr">
+      <h2>Codes d'invitation actifs</h2>
+      <span style="font-size:.75rem;color:var(--muted);">{{ invitations | length }} code{{ 's' if invitations | length != 1 }}</span>
+    </div>
+    <div class="section-body">
+      {% if invitations %}
+      <div style="display:flex;flex-direction:column;gap:.5rem;">
+        {% set equipes_map = {} %}
+        {% for eq in equipes %}{% set _ = equipes_map.update({eq.id: eq.nom_equipe}) %}{% endfor %}
+        {% for inv in invitations %}
+        <div class="inv-card">
+          <div class="inv-code">{{ inv.code }}</div>
+          <div class="inv-meta">
+            {{ equipes_map.get(inv.equipe_id, '—') }} ·
+            Expire le {{ inv.expires_at[:10] }}
+          </div>
+          <span class="inv-role {{ 'role-coach' if inv.role_cible == 'coach' else 'role-joueur' }}">
+            {{ 'Coach' if inv.role_cible == 'coach' else 'Joueur' }}
+          </span>
+        </div>
+        <div class="invite-url">/rejoindre?code={{ inv.code }}</div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-box">Aucun code actif. Cliquez sur "Inviter" pour générer un code.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ══ Membres ══ -->
+  <div class="section">
+    <div class="section-hdr">
+      <h2>Membres du club</h2>
+      <span style="font-size:.75rem;color:var(--muted);">{{ membres | length }} membre{{ 's' if membres | length != 1 }}</span>
+    </div>
+    {% if membres %}
+    <table>
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Email</th>
+          <th>Rôle</th>
+          <th>Équipe</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set equipes_map = {} %}
+        {% for eq in equipes %}{% set _ = equipes_map.update({eq.id: eq.nom_equipe}) %}{% endfor %}
+        {% for m in membres %}
+        <tr>
+          <td>{{ m.prenom }} {{ m.nom }}</td>
+          <td style="color:var(--muted);font-size:.8rem;">{{ m.email }}</td>
+          <td>
+            <span class="role-badge {{ 'rb-coach' if m.role == 'coach' else 'rb-joueur' }}">
+              {{ 'Coach' if m.role == 'coach' else 'Joueur' }}
+            </span>
+          </td>
+          <td style="color:var(--muted);font-size:.82rem;">
+            {{ equipes_map.get(m.equipe_id, '—') }}
+          </td>
+          <td style="text-align:right;">
+            <form method="POST" action="/equipes/membre/supprimer/{{ m.id }}" style="margin:0;"
+                  onsubmit="return confirm('Retirer ce membre ?')">
+              <button type="submit" class="btn-icon del" title="Supprimer">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-box">Aucun membre inscrit. Envoyez des codes d'invitation.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Modal ajouter équipe -->
+<div id="modal-add-equipe" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <h3>Nouvelle équipe</h3>
+    <form method="POST" action="/equipes/ajouter" id="form-ajouter-equipe">
+      <div class="form-group">
+        <label>Nom de l'équipe *</label>
+        <input type="text" name="nom_equipe" placeholder="ex : Seniors A, U18…" required autofocus>
+      </div>
+      <div class="form-row2">
+        <div class="form-group">
+          <label>Sport *</label>
+          <select name="sport" required>
+            <option value="">— Sport —</option>
+            {% for s in ['Football','Rugby','Basket','Handball','Volley-ball','Hockey sur glace','Football américain','Water-polo'] %}
+            <option value="{{ s }}" {{ 'selected' if s == sport }}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Catégorie</label>
+          <select name="categorie">
+            {% for c in ['Seniors','U21','U18','U16','U14','U12','Vétérans','Féminine'] %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-add-equipe')">Annuler</button>
+        <button type="submit" class="btn-submit-m">Créer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal inviter -->
+<div id="modal-invite" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <h3>Générer un code d'invitation</h3>
+    <form method="POST" action="/equipes/invitation/generer">
+      <input type="hidden" name="equipe_id" id="inv-equipe-id">
+      <div class="form-group">
+        <label>Équipe</label>
+        <input type="text" id="inv-equipe-nom" disabled
+               style="background:var(--bg);color:var(--muted);cursor:default;">
+      </div>
+      <div class="form-group">
+        <label>Rôle invité *</label>
+        <select name="role_cible">
+          <option value="joueur">Joueur</option>
+          <option value="coach">Coach</option>
+        </select>
+      </div>
+      <p style="font-size:.78rem;color:var(--muted);margin:.5rem 0 1rem;">
+        Le code sera valable <strong>7 jours</strong>. Partagez le lien <code>/rejoindre?code=…</code> avec le destinataire.
+      </p>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal('modal-invite')">Annuler</button>
+        <button type="submit" class="btn-submit-m">Générer le code</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function openInvite(eq) {
+  document.getElementById('inv-equipe-id').value = eq.id;
+  document.getElementById('inv-equipe-nom').value = eq.nom;
+  openModal('modal-invite');
+}
+</script>
+{% endblock %}
