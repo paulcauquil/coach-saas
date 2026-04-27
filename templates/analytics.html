@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}Analytics — Tactix{% endblock %}
+
+{% block extra_style %}
+<style>
+  .analytics-page { flex:1; padding:2rem 2rem 4rem; width:100%; max-width:1100px; margin:0 auto; box-sizing:border-box; }
+
+  /* Header */
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
+  .page-title  { font-size:1.4rem; font-weight:700; letter-spacing:-.02em; }
+  .plan-badge  { display:inline-flex; align-items:center; gap:.35rem; padding:3px 10px; background:rgba(0,85,164,.1); border:1px solid rgba(0,85,164,.2); border-radius:20px; font-size:.68rem; font-weight:700; color:var(--accent); letter-spacing:.04em; text-transform:uppercase; }
+
+  /* KPIs */
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
+  @media(max-width:640px){ .kpi-row { grid-template-columns:repeat(2,1fr); } }
+  .kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.1rem; border-left:3px solid var(--accent); }
+  .kpi.kpi-v { border-left-color:#2ECC71; }
+  .kpi.kpi-d { border-left-color:var(--error); }
+  .kpi.kpi-n { border-left-color:#f59e0b; }
+  .kpi-label { font-size:.7rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.3rem; }
+  .kpi-val   { font-size:1.8rem; font-weight:800; letter-spacing:-.03em; line-height:1; }
+
+  /* Charts grid */
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.25rem; }
+  @media(max-width:720px){ .charts-grid { grid-template-columns:1fr; } }
+  .chart-card  { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; }
+  .chart-full  { grid-column:1/-1; }
+  .chart-title { font-size:.85rem; font-weight:700; margin-bottom:1rem; color:var(--text); }
+  .chart-wrap  { position:relative; }
+
+  /* Comparaison joueurs */
+  .compare-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; margin-bottom:1.25rem; }
+  .compare-title   { font-size:.85rem; font-weight:700; margin-bottom:1rem; }
+  .compare-selects { display:flex; gap:1rem; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .compare-selects select { flex:1; min-width:160px; padding:.55rem .75rem; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-size:.875rem; font-family:var(--font); outline:none; }
+  .compare-selects select:focus { border-color:var(--accent); }
+
+  /* Table top performers */
+  .top-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+  .top-table th { text-align:left; padding:.45rem .6rem; color:var(--muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; border-bottom:1px solid var(--border); }
+  .top-table td { padding:.55rem .6rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .top-table tr:last-child td { border-bottom:none; }
+  .rank-num  { font-weight:700; color:var(--muted); font-size:.75rem; width:24px; }
+  .player-nm { font-weight:600; }
+  .player-ps { font-size:.72rem; color:var(--muted); }
+  .val-badge { display:inline-block; min-width:28px; text-align:center; padding:2px 8px; border-radius:4px; font-weight:700; background:rgba(0,85,164,.1); color:var(--accent); font-size:.82rem; }
+  .bar-wrap  { display:flex; align-items:center; gap:.5rem; }
+  .bar-bg    { flex:1; height:6px; background:var(--bg); border-radius:3px; overflow:hidden; }
+  .bar-fill  { height:100%; background:var(--accent); border-radius:3px; transition:width .6s ease; }
+
+  /* Empty */
+  .empty-analytics { text-align:center; padding:3rem; color:var(--muted); font-size:.9rem; }
+  .empty-analytics .ei { font-size:2.5rem; margin-bottom:.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-page">
+
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <h1 class="page-title">📊 Analytics</h1>
+      <span class="plan-badge">🚀 Elite</span>
+    </div>
+    <span style="font-size:.8rem;color:var(--muted);">{{ matchs|length }} match{{ 's' if matchs|length != 1 }} analysé{{ 's' if matchs|length != 1 }}</span>
+  </div>
+
+  {% if not matchs %}
+  <div class="empty-analytics">
+    <div class="ei">📊</div>
+    <p>Aucun match joué pour l'instant.<br>Les analytics se rempliront automatiquement au fil de la saison.</p>
+  </div>
+
+  {% else %}
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi kpi-v">
+      <div class="kpi-label">Victoires</div>
+      <div class="kpi-val" style="color:#2ECC71;">{{ victoires }}</div>
+    </div>
+    <div class="kpi kpi-n">
+      <div class="kpi-label">Nuls</div>
+      <div class="kpi-val" style="color:#f59e0b;">{{ nuls }}</div>
+    </div>
+    <div class="kpi kpi-d">
+      <div class="kpi-label">Défaites</div>
+      <div class="kpi-val" style="color:var(--error);">{{ defaites }}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">% Victoires</div>
+      {% set total_joues = victoires + nuls + defaites %}
+      <div class="kpi-val">{{ ((victoires / total_joues * 100) | round(0) | int) if total_joues > 0 else 0 }}<span style="font-size:1rem;font-weight:500;">%</span></div>
+    </div>
+  </div>
+
+  <!-- Graphiques -->
+  <div class="charts-grid">
+
+    <!-- Résultats par match (barres) -->
+    <div class="chart-card chart-full">
+      <div class="chart-title">Buts marqués / encaissés par match</div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="chart-scores"></canvas>
+      </div>
+    </div>
+
+    <!-- Répartition V/N/D (doughnut) -->
+    <div class="chart-card">
+      <div class="chart-title">Répartition des résultats</div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="chart-donut"></canvas>
+      </div>
+    </div>
+
+    <!-- Progression buts -->
+    <div class="chart-card">
+      <div class="chart-title">Buts cumulés (nous)</div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="chart-cumul"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Top performers -->
+  {% if top_joueurs %}
+  <div class="chart-card" style="margin-bottom:1.25rem;">
+    <div class="chart-title">🏆 Top {{ first_label }} — saison en cours</div>
+    {% set max_val = top_joueurs[0].val if top_joueurs else 1 %}
+    <table class="top-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Joueur</th>
+          <th>Poste</th>
+          <th style="text-align:right;">{{ first_label }}</th>
+          <th style="width:120px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for j in top_joueurs %}
+        <tr>
+          <td class="rank-num">{{ loop.index }}</td>
+          <td class="player-nm">{{ j.nom }}</td>
+          <td class="player-ps">{{ j.poste or '—' }}</td>
+          <td style="text-align:right;"><span class="val-badge">{{ j.val }}</span></td>
+          <td>
+            <div class="bar-wrap">
+              <div class="bar-bg"><div class="bar-fill" style="width:{{ ((j.val / max_val) * 100) | round(0) | int }}%;"></div></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- Comparaison joueurs -->
+  {% if effectif and stat_fields %}
+  <div class="compare-section">
+    <div class="compare-title">⚖️ Comparaison de deux joueurs</div>
+    <div class="compare-selects">
+      <select id="joueur-a" onchange="updateComparison()">
+        <option value="">— Joueur A —</option>
+        {% for j in effectif %}
+        <option value="{{ j.id }}">{{ j.prenom }} {{ j.nom }}{% if j.poste %} · {{ j.poste }}{% endif %}</option>
+        {% endfor %}
+      </select>
+      <select id="joueur-b" onchange="updateComparison()">
+        <option value="">— Joueur B —</option>
+        {% for j in effectif %}
+        <option value="{{ j.id }}">{{ j.prenom }} {{ j.nom }}{% if j.poste %} · {{ j.poste }}{% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="chart-wrap" style="height:200px;">
+      <canvas id="chart-compare"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Données injectées depuis Flask
+const CHART_MATCHS = {{ chart_matchs | tojson }};
+const STATS_BY_JOUEUR = {{ stats_by_joueur | tojson }};
+const EFFECTIF = {{ effectif | tojson }};
+const STAT_FIELDS = {{ stat_fields | tojson }};
+
+// Palette
+const C_BLEU   = 'rgba(0,85,164,.85)';
+const C_ROUGE  = 'rgba(232,117,42,.85)';
+const C_VERT   = 'rgba(46,204,113,.85)';
+const C_MUTED  = 'rgba(107,114,128,.6)';
+
+Chart.defaults.font.family = "'Manrope', sans-serif";
+Chart.defaults.color = '#9CA3AF';
+
+// ── Buts marqués / encaissés ──────────────────────────────────────────────────
+if (document.getElementById('chart-scores') && CHART_MATCHS.length) {
+  new Chart(document.getElementById('chart-scores'), {
+    type: 'bar',
+    data: {
+      labels: CHART_MATCHS.map(m => m.label),
+      datasets: [
+        { label: 'Nous', data: CHART_MATCHS.map(m => m.score_nous), backgroundColor: C_BLEU, borderRadius: 4 },
+        { label: 'Eux',  data: CHART_MATCHS.map(m => m.score_eux),  backgroundColor: C_MUTED, borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { maxRotation: 45, font: { size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,.04)' }, beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+
+// ── Donut V/N/D ───────────────────────────────────────────────────────────────
+if (document.getElementById('chart-donut')) {
+  const v = {{ victoires }}, n = {{ nuls }}, d = {{ defaites }};
+  new Chart(document.getElementById('chart-donut'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Victoires', 'Nuls', 'Défaites'],
+      datasets: [{ data: [v, n, d], backgroundColor: ['rgba(46,204,113,.8)','rgba(245,158,11,.8)','rgba(231,76,60,.8)'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${ctx.raw}` } } },
+      cutout: '65%'
+    }
+  });
+}
+
+// ── Buts cumulés ──────────────────────────────────────────────────────────────
+if (document.getElementById('chart-cumul') && CHART_MATCHS.length) {
+  let cum = 0;
+  const data = CHART_MATCHS.map(m => { cum += m.score_nous; return cum; });
+  new Chart(document.getElementById('chart-cumul'), {
+    type: 'line',
+    data: {
+      labels: CHART_MATCHS.map(m => m.label),
+      datasets: [{
+        label: 'Buts cumulés',
+        data,
+        borderColor: C_BLEU,
+        backgroundColor: 'rgba(0,85,164,.08)',
+        fill: true,
+        tension: .35,
+        pointRadius: 4,
+        pointBackgroundColor: C_BLEU,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { maxRotation: 45, font: { size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,.04)' }, beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+
+// ── Comparaison joueurs ───────────────────────────────────────────────────────
+let compareChart = null;
+
+function updateComparison() {
+  const idA = document.getElementById('joueur-a')?.value;
+  const idB = document.getElementById('joueur-b')?.value;
+  const canvas = document.getElementById('chart-compare');
+  if (!canvas || !STAT_FIELDS.length) return;
+
+  const labels = STAT_FIELDS.map(f => f[1]);
+  const getStats = id => STAT_FIELDS.map(f => (STATS_BY_JOUEUR[id] || {})[f[0]] || 0);
+
+  const nomA = idA ? EFFECTIF.find(j => String(j.id) === idA)?.prenom + ' ' + EFFECTIF.find(j => String(j.id) === idA)?.nom : 'Joueur A';
+  const nomB = idB ? EFFECTIF.find(j => String(j.id) === idB)?.prenom + ' ' + EFFECTIF.find(j => String(j.id) === idB)?.nom : 'Joueur B';
+
+  const datasets = [];
+  if (idA) datasets.push({ label: nomA, data: getStats(idA), backgroundColor: C_BLEU, borderRadius: 4 });
+  if (idB) datasets.push({ label: nomB, data: getStats(idB), backgroundColor: C_ROUGE, borderRadius: 4 });
+
+  if (compareChart) compareChart.destroy();
+  if (!datasets.length) return;
+
+  compareChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,.04)' } },
+        y: { grid: { color: 'rgba(255,255,255,.04)' }, beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -1,346 +1,268 @@
 {% extends "base.html" %}
 {% block title %}Tarifs — Tactix{% endblock %}
 
-{% block nav_right %}
-  <div style="display:flex;align-items:center;gap:1.5rem;">
-    {% if plan is not none %}
-      <a href="/dashboard" style="font-size:.875rem;color:var(--muted);">← Dashboard</a>
-    {% else %}
-      <a href="/connexion" style="font-size:.875rem;color:var(--muted);">Connexion</a>
-    {% endif %}
-  </div>
-{% endblock %}
-
 {% block extra_style %}
 <style>
-  .pricing-wrapper {
-    flex: 1;
-    padding: 3rem 2rem 4rem;
-    max-width: 860px;
-    margin: 0 auto;
-    width: 100%;
-  }
+  .tarifs-page { flex:1; padding:3rem 1.5rem 5rem; width:100%; max-width:1080px; margin:0 auto; box-sizing:border-box; }
 
-  /* ── En-tête ── */
-  .pricing-header {
-    text-align: center;
-    margin-bottom: 3rem;
-  }
-  .pricing-header .eyebrow {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--accent);
-    margin-bottom: 0.6rem;
-  }
-  .pricing-header h1 {
-    font-size: 2rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    margin-bottom: 0.6rem;
-  }
-  .pricing-header p {
-    color: var(--muted);
-    font-size: 0.95rem;
-    max-width: 420px;
-    margin: 0 auto;
-    line-height: 1.6;
-  }
+  .tarifs-header { text-align:center; margin-bottom:3rem; }
+  .tarifs-header h1 { font-size:2rem; font-weight:800; letter-spacing:-.03em; margin-bottom:.5rem; }
+  .tarifs-header p  { color:var(--muted); font-size:1rem; }
 
-  /* ── Grille des plans ── */
-  .pricing-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.25rem;
-    align-items: start;
+  .plans-grid {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:1.25rem;
+    align-items:start;
   }
-  @media (max-width: 600px) {
-    .pricing-grid { grid-template-columns: 1fr; }
-  }
+  @media(max-width:860px){ .plans-grid { grid-template-columns:1fr; max-width:420px; margin:0 auto; } }
 
-  /* ── Card plan ── */
   .plan-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    position: relative;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:1.75rem 1.5rem 1.5rem;
+    display:flex;
+    flex-direction:column;
+    gap:1.1rem;
+    position:relative;
+    transition:box-shadow .2s;
   }
-  .plan-card-pro {
-    border-color: rgba(255,255,255,.45);
-    box-shadow: 0 0 0 1px rgba(0,85,164,.1), 0 8px 40px rgba(0,85,164,.07);
+  .plan-card:hover { box-shadow:0 4px 24px rgba(0,0,0,.08); }
+
+  .plan-elite {
+    border:2px solid var(--accent);
+    box-shadow:0 0 0 4px rgba(0,85,164,.07);
+  }
+  .plan-elite:hover { box-shadow:0 0 0 4px rgba(0,85,164,.12), 0 6px 28px rgba(0,85,164,.12); }
+
+  .badge-recommande {
+    position:absolute;
+    top:-14px;
+    left:50%;
+    transform:translateX(-50%);
+    background:var(--accent);
+    color:#fff;
+    font-size:.68rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    padding:3px 14px;
+    border-radius:20px;
+    white-space:nowrap;
   }
 
-  /* Badge populaire */
-  .popular-badge {
-    position: absolute;
-    top: -13px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--accent);
-    color: #fff;
-    font-size: 0.65rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 3px 12px;
-    border-radius: 20px;
-    white-space: nowrap;
-  }
-
-  /* En-tête card */
-  .plan-top { margin-bottom: 1.5rem; }
-  .plan-icon { font-size: 1.4rem; margin-bottom: 0.6rem; }
   .plan-name {
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    margin-bottom: 0.25rem;
+    font-size:.72rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:var(--muted);
+    margin-bottom:.35rem;
   }
-  .plan-tagline { font-size: 0.8rem; color: var(--muted); }
+  .plan-name.name-pro   { color:#f59e0b; }
+  .plan-name.name-elite { color:var(--accent); }
 
-  /* Prix */
   .plan-price {
-    display: flex;
-    align-items: baseline;
-    gap: 0.2rem;
-    margin: 1.25rem 0;
+    font-size:2.2rem;
+    font-weight:800;
+    letter-spacing:-.04em;
+    line-height:1;
+    margin-bottom:.2rem;
   }
-  .price-amount {
-    font-size: 2.6rem;
-    font-weight: 800;
-    letter-spacing: -0.04em;
-    line-height: 1;
-  }
-  .price-currency {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--muted);
-    align-self: flex-start;
-    margin-top: 0.35rem;
-  }
-  .price-period { font-size: 0.85rem; color: var(--muted); }
-  .price-free   { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; }
+  .plan-price sup { font-size:1rem; font-weight:600; vertical-align:super; }
+  .plan-period { font-size:.8rem; color:var(--muted); }
 
-  /* Séparateur */
-  .plan-divider {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 1.25rem 0;
+  .plan-degressif {
+    font-size:.72rem;
+    color:var(--accent);
+    background:rgba(0,85,164,.07);
+    border:1px solid rgba(0,85,164,.15);
+    border-radius:6px;
+    padding:.35rem .7rem;
+    margin-top:.35rem;
+    line-height:1.6;
   }
 
-  /* Features */
-  .feature-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-    margin-bottom: 1.75rem;
-    flex: 1;
+  .plan-divider { border:none; border-top:1px solid var(--border); margin:.15rem 0; }
+
+  .plan-features { display:flex; flex-direction:column; gap:.5rem; flex:1; }
+
+  .feat {
+    display:flex;
+    align-items:flex-start;
+    gap:.55rem;
+    font-size:.82rem;
+    color:var(--body-text);
+    line-height:1.4;
   }
-  .feature-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.55rem;
-    font-size: 0.875rem;
-    line-height: 1.4;
-  }
-  .feat-check { color: #2ECC71; font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
-  .feat-cross { color: var(--border); font-size: 0.85rem; flex-shrink: 0; margin-top: 1px; }
-  .feat-pro-lock {
-    font-size: 0.65rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: rgba(0,85,164,.08);
-    color: var(--accent);
-    border: 1px solid rgba(0,85,164,.15);
-    border-radius: 4px;
-    padding: 1px 5px;
-    margin-left: 0.2rem;
-    vertical-align: middle;
-    white-space: nowrap;
+  .feat-icon { flex-shrink:0; font-size:.8rem; margin-top:.05rem; }
+  .feat-icon.ok   { color:#2ECC71; }
+  .feat-icon.lock { color:var(--muted); }
+  .feat-icon.star { color:var(--accent); }
+  .feat.muted-feat { color:var(--muted); }
+
+  .feat-section {
+    font-size:.62rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--muted);
+    margin-top:.3rem;
+    margin-bottom:.1rem;
   }
 
-  /* CTA buttons */
-  .btn-cta {
-    width: 100%;
-    padding: 0.8rem 1rem;
-    border-radius: var(--radius);
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-    border: none;
-    transition: background .15s, transform .1s, opacity .15s;
-    text-align: center;
-    text-decoration: none;
-    display: block;
+  .btn-plan {
+    display:block;
+    width:100%;
+    padding:.7rem;
+    text-align:center;
+    border-radius:var(--radius);
+    font-size:.9rem;
+    font-weight:700;
+    cursor:pointer;
+    border:none;
+    transition:background .15s, transform .1s;
+    text-decoration:none;
+    box-sizing:border-box;
   }
-  .btn-cta:active { transform: scale(.98); }
+  .btn-plan:active { transform:scale(.97); }
+  .btn-gratuit  { background:var(--bg); border:1px solid var(--border); color:var(--text); }
+  .btn-gratuit:hover { border-color:var(--muted); color:var(--text); }
+  .btn-pro      { background:#f59e0b; color:#fff; }
+  .btn-pro:hover{ background:#d97706; color:#fff; }
+  .btn-elite    { background:var(--accent); color:#fff; }
+  .btn-elite:hover { background:var(--accent-h); color:#fff; }
+  .btn-current  { background:var(--bg); border:1px solid var(--border); color:var(--muted); cursor:default; display:block; width:100%; padding:.7rem; text-align:center; border-radius:var(--radius); font-size:.9rem; font-weight:600; box-sizing:border-box; }
 
-  .btn-cta-free {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    cursor: default;
-  }
-  .btn-cta-current {
-    background: rgba(46,204,113,.1);
-    border: 1px solid rgba(46,204,113,.3);
-    color: #2ECC71;
-    cursor: default;
-  }
-  .btn-cta-pro {
-    background: var(--accent);
-    color: #fff;
-  }
-  .btn-cta-pro:hover { background: var(--accent-h); color: #fff; }
-  .btn-cta-pro-current {
-    background: rgba(0,85,164,.07);
-    border: 1px solid rgba(0,85,164,.18);
-    color: var(--accent);
-    cursor: default;
-  }
-
-  /* Garanties */
-  .trust-row {
-    display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin-top: 2.5rem;
-    flex-wrap: wrap;
-  }
-  .trust-item {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.78rem;
-    color: var(--muted);
-  }
-
-  /* Manage sub link */
-  .manage-link {
-    text-align: center;
-    margin-top: 1.5rem;
-    font-size: 0.82rem;
-    color: var(--muted);
-  }
-  .manage-link a { color: var(--accent); }
+  .tarifs-note { text-align:center; margin-top:2.5rem; color:var(--muted); font-size:.8rem; line-height:1.6; }
+  .tarifs-note a { color:var(--accent); text-decoration:none; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="pricing-wrapper">
+<div class="tarifs-page">
 
-  <div class="pricing-header">
-    <div class="eyebrow">Tarifs</div>
-    <h1>Simple. Transparent. Sans surprise.</h1>
-    <p>Lancez-vous gratuitement et passez au Pro quand vous êtes prêt.</p>
+  <div class="tarifs-header">
+    <h1>Choisissez votre plan</h1>
+    <p>Commencez gratuitement, passez au niveau supérieur quand vous êtes prêt.</p>
   </div>
 
-  <div class="pricing-grid">
+  <div class="plans-grid">
 
-    <!-- ── Plan Gratuit ── -->
+    <!-- ══ GRATUIT ══ -->
     <div class="plan-card">
-      <div class="plan-top">
-        <div class="plan-icon">✦</div>
-        <div class="plan-name">Plan Gratuit</div>
-        <div class="plan-tagline">Pour démarrer sans engagement</div>
+      <div>
+        <div class="plan-name">Gratuit</div>
+        <div class="plan-price">0<sup>€</sup></div>
+        <div class="plan-period">pour toujours</div>
       </div>
-
-      <div class="plan-price">
-        <span class="price-free">0 €</span>
-        <span class="price-period">&nbsp;/ toujours</span>
-      </div>
-
       <hr class="plan-divider">
-
-      <ul class="feature-list">
-        <li><span class="feat-check">✓</span> 1 équipe</li>
-        <li><span class="feat-check">✓</span> Effectif illimité</li>
-        <li><span class="feat-check">✓</span> Tableau de bord &amp; stats</li>
-        <li><span class="feat-check">✓</span> Gestion des matchs <span style="color:var(--muted);font-size:.78rem;">(20 max)</span></li>
-        <li>
-          <span class="feat-cross">✗</span>
-          <span style="color:var(--muted);">Composition visuelle <span class="feat-pro-lock">Pro</span></span>
-        </li>
-        <li>
-          <span class="feat-cross">✗</span>
-          <span style="color:var(--muted);">Export PDF <span class="feat-pro-lock">Pro</span></span>
-        </li>
-        <li>
-          <span class="feat-cross">✗</span>
-          <span style="color:var(--muted);">Matchs illimités <span class="feat-pro-lock">Pro</span></span>
-        </li>
-      </ul>
-
-      {% if plan == 'pro' %}
-        <span class="btn-cta btn-cta-free">Plan précédent</span>
+      <div class="plan-features">
+        <div class="feat-section">Équipe</div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>1 équipe</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Effectif illimité</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Dashboard & statistiques</span></div>
+        <div class="feat-section">Matchs</div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Jusqu'à 20 matchs</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Classement de base</span></div>
+        <div class="feat-section">Limites</div>
+        <div class="feat muted-feat"><span class="feat-icon lock">✕</span><span>Composition visuelle</span></div>
+        <div class="feat muted-feat"><span class="feat-icon lock">✕</span><span>Journal de bord</span></div>
+        <div class="feat muted-feat"><span class="feat-icon lock">✕</span><span>Analyse adversaire</span></div>
+        <div class="feat muted-feat"><span class="feat-icon lock">✕</span><span>Analytics avancés</span></div>
+      </div>
+      {% if not plan %}
+        <a href="/connexion" class="btn-plan btn-gratuit">Créer un compte</a>
       {% elif plan == 'gratuit' %}
-        <span class="btn-cta btn-cta-current">✓ Plan actuel</span>
+        <span class="btn-current">Plan actuel</span>
       {% else %}
-        <a href="/inscription" class="btn-cta btn-cta-free" style="border-color:var(--accent);color:var(--accent);">Commencer gratuitement</a>
+        <span class="btn-current">Inclus</span>
       {% endif %}
     </div>
 
-    <!-- ── Plan Pro ── -->
-    <div class="plan-card plan-card-pro">
-      <div class="popular-badge">⚡ Populaire</div>
-
-      <div class="plan-top">
-        <div class="plan-icon">⚡</div>
-        <div class="plan-name">Plan Pro</div>
-        <div class="plan-tagline">Pour les clubs sérieux</div>
+    <!-- ══ PRO ══ -->
+    <div class="plan-card">
+      <div>
+        <div class="plan-name name-pro">⚡ Pro</div>
+        <div class="plan-price">40<sup>€</sup></div>
+        <div class="plan-period">/ mois · par équipe</div>
       </div>
-
-      <div class="plan-price">
-        <span class="price-currency">€</span>
-        <span class="price-amount">29</span>
-        <span class="price-period">/ mois</span>
-      </div>
-
       <hr class="plan-divider">
-
-      <ul class="feature-list">
-        <li><span class="feat-check">✓</span> Tout du plan Gratuit</li>
-        <li><span class="feat-check">✓</span> <strong>Matchs illimités</strong></li>
-        <li><span class="feat-check">✓</span> <strong>Composition visuelle</strong> sur terrain</li>
-        <li><span class="feat-check">✓</span> <strong>Export PNG</strong> à partager sur WhatsApp</li>
-        <li><span class="feat-check">✓</span> Export PDF <span style="color:var(--muted);font-size:.78rem;">(bientôt)</span></li>
-        <li><span class="feat-check">✓</span> Support prioritaire</li>
-        <li><span class="feat-check">✓</span> Annulation à tout moment</li>
-      </ul>
-
-      {% if plan == 'pro' %}
-        <span class="btn-cta btn-cta-pro-current">✓ Plan actuel</span>
+      <div class="plan-features">
+        <div class="feat-section">Équipes</div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span><strong>Jusqu'à 3 équipes</strong></span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Matchs illimités</span></div>
+        <div class="feat-section">Fonctionnalités complètes</div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Composition visuelle + export PNG</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Planning & convocations</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Journal de bord</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Analyse adversaire</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Blessures & indisponibilités</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Messagerie équipe</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Support prioritaire</span></div>
+        <div class="feat"><span class="feat-icon ok">✓</span><span>Annulation à tout moment</span></div>
+        <div class="feat muted-feat"><span class="feat-icon lock">✕</span><span>Analytics avancés</span></div>
+        <div class="feat muted-feat"><span class="feat-icon lock">✕</span><span>Emails automatiques</span></div>
+      </div>
+      {% if not plan %}
+        <a href="/connexion" class="btn-plan btn-pro">Commencer avec Pro</a>
       {% elif plan == 'gratuit' %}
-        <form method="POST" action="/checkout">
-          <button type="submit" class="btn-cta btn-cta-pro">Passer au Pro → </button>
+        <form method="POST" action="/checkout" style="margin:0;">
+          <input type="hidden" name="plan" value="pro">
+          <button type="submit" class="btn-plan btn-pro">Passer à Pro →</button>
         </form>
+      {% elif plan == 'pro' %}
+        <span class="btn-current">Plan actuel ✓</span>
       {% else %}
-        <a href="/inscription" class="btn-cta btn-cta-pro">Commencer avec le Pro</a>
+        <span class="btn-current">Inclus dans Elite</span>
+      {% endif %}
+    </div>
+
+    <!-- ══ ELITE ══ -->
+    <div class="plan-card plan-elite">
+      <div class="badge-recommande">⭐ Recommandé</div>
+      <div>
+        <div class="plan-name name-elite">🚀 Elite</div>
+        <div class="plan-price">75<sup>€</sup></div>
+        <div class="plan-period">/ mois · par équipe</div>
+        <div class="plan-degressif">
+          2 équipes → <strong>130 €/mois</strong><br>
+          3 équipes → <strong>180 €/mois</strong><br>
+          4+ équipes → <strong>60 €/équipe/mois</strong>
+        </div>
+      </div>
+      <hr class="plan-divider">
+      <div class="plan-features">
+        <div class="feat-section">Tout ce qu'il y a dans Pro, plus…</div>
+        <div class="feat"><span class="feat-icon star">★</span><span><strong>Équipes illimitées</strong></span></div>
+        <div class="feat"><span class="feat-icon star">★</span><span><strong>Analytics avancés</strong> — progression saison, comparaison joueurs</span></div>
+        <div class="feat"><span class="feat-icon star">★</span><span><strong>Convocations par email</strong> automatique aux joueurs</span></div>
+        <div class="feat"><span class="feat-icon star">★</span><span>Rappel automatique 24h avant match & séance</span></div>
+        <div class="feat"><span class="feat-icon star">★</span><span>Sondage présence/absence par email</span></div>
+        <div class="feat"><span class="feat-icon star">★</span><span><strong>Logo & couleurs</strong> du club personnalisés</span></div>
+        <div class="feat"><span class="feat-icon star">★</span><span>Logos équipes adverses</span></div>
+        <div class="feat"><span class="feat-icon star">★</span><span>Rapport PDF mensuel automatique</span></div>
+        <div class="feat"><span class="feat-icon star">★</span><span>Support dédié + onboarding</span></div>
+      </div>
+      {% if not plan %}
+        <a href="/connexion" class="btn-plan btn-elite">Commencer avec Elite</a>
+      {% elif plan in ('gratuit', 'pro') %}
+        <form method="POST" action="/checkout" style="margin:0;">
+          <input type="hidden" name="plan" value="elite">
+          <button type="submit" class="btn-plan btn-elite">Passer à Elite →</button>
+        </form>
+      {% elif plan == 'elite' %}
+        <span class="btn-current">Plan actuel ✓</span>
       {% endif %}
     </div>
 
   </div>
 
-  <!-- Garanties -->
-  <div class="trust-row">
-    <div class="trust-item">🔒 Paiement sécurisé Stripe</div>
-    <div class="trust-item">🔄 Annulation à tout moment</div>
-    <div class="trust-item">🧪 Mode test actif</div>
-  </div>
-
-  <!-- Lien portail si Pro -->
-  {% if plan == 'pro' %}
-  <div class="manage-link">
-    <a href="/gerer-abonnement">Gérer mon abonnement →</a>
-  </div>
-  {% endif %}
+  <p class="tarifs-note">
+    Paiement sécurisé par <strong>Stripe</strong> · Aucun engagement · Annulable à tout moment<br>
+    Pour la tarification multi-équipes Elite, <a href="mailto:contact@tactix.app">contactez-nous</a> pour un devis personnalisé.
+  </p>
 
 </div>
 {% endblock %}

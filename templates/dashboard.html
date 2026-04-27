@@ -427,7 +427,7 @@
           {% endfor %}
         {% else %}
           <div class="empty-row">
-            Aucun match enregistré. <a href="/matchs">Ajouter →</a>
+            Aucun match enregistré.{% if user_role != 'joueur' %} <a href="/matchs">Ajouter →</a>{% endif %}
           </div>
         {% endif %}
       </div>

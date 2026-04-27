@@ -8,11 +8,28 @@ from flask import (Flask, render_template, request, redirect,
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from functools import wraps
+try:
+    from flask_mail import Mail, Message as MailMessage
+    _MAIL_AVAILABLE = True
+except ImportError:
+    _MAIL_AVAILABLE = False
 
 load_dotenv()
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+
+# ── Flask-Mail (Elite — envoi d'emails convocations) ──────────────────────────
+app.config.update(
+    MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
+    MAIL_USE_TLS=True,
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME", ""),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD", ""),
+    MAIL_DEFAULT_SENDER=os.getenv("MAIL_DEFAULT_SENDER", "noreply@tactix.app"),
+)
+if _MAIL_AVAILABLE:
+    mail = Mail(app)
 app.jinja_env.globals["chr"] = chr
 
 # ── Postes disponibles par sport ──────────────────────────────────────────────
@@ -401,11 +418,22 @@ def coach_or_president(f):
 
 
 def pro_required(f):
-    """Redirige vers /tarifs si le club n'est pas Pro."""
+    """Redirige vers /tarifs si le club n'est pas au moins Pro."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        if session.get("plan", "gratuit") != "pro":
+        if session.get("plan", "gratuit") not in ("pro", "elite"):
             flash("🔒 Fonctionnalité réservée au plan Pro.", "error")
+            return redirect(url_for("tarifs"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+def elite_required(f):
+    """Redirige vers /tarifs si le club n'est pas Elite."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get("plan", "gratuit") != "elite":
+            flash("🚀 Fonctionnalité réservée au plan Elite. Passez à Elite pour débloquer les analytics avancés, l'email automatique et plus.", "error")
             return redirect(url_for("tarifs"))
         return f(*args, **kwargs)
     return decorated
@@ -719,6 +747,19 @@ def ajouter_equipe_club():
     if not nom_equipe or not sport:
         flash("Nom et sport obligatoires.", "error")
         return redirect(url_for("gestion_equipes"))
+    # Limite par plan
+    plan_actuel = session.get("plan", "gratuit")
+    if plan_actuel != "elite":
+        limite = 1 if plan_actuel == "gratuit" else 3
+        try:
+            count_res = supabase.table("equipes_club").select("id").eq("club_id", club_id).execute()
+            nb_equipes = len(count_res.data or [])
+        except Exception:
+            nb_equipes = 0
+        if nb_equipes >= limite:
+            plan_suivant = "Pro" if plan_actuel == "gratuit" else "Elite"
+            flash(f"🔒 Limite atteinte ({limite} équipe{'s' if limite > 1 else ''} max sur votre plan). Passez au plan {plan_suivant} pour en créer davantage.", "error")
+            return redirect(url_for("gestion_equipes"))
     try:
         res = supabase.table("equipes_club").insert({
             "club_id": club_id, "nom_equipe": nom_equipe,
@@ -3066,6 +3107,17 @@ def checkout():
         flash("⚠️ Stripe n'est pas encore configuré. Renseigne tes clés dans le fichier .env", "error")
         return redirect(url_for("tarifs"))
 
+    plan_cible = request.form.get("plan", "pro")  # "pro" ou "elite"
+    if plan_cible == "elite":
+        price_id = os.getenv("STRIPE_ELITE_PRICE_ID", "")
+    else:
+        plan_cible = "pro"
+        price_id = os.getenv("STRIPE_PRICE_ID", "")
+
+    if not price_id:
+        flash(f"⚠️ Le tarif {plan_cible.capitalize()} n'est pas encore configuré (STRIPE_{'ELITE_' if plan_cible=='elite' else ''}PRICE_ID manquant).", "error")
+        return redirect(url_for("tarifs"))
+
     club_id = session.get("club_id")
     res = supabase.table("clubs").select("email,stripe_customer_id").eq("id", club_id).execute()
     club = res.data[0] if res.data else {}
@@ -3074,13 +3126,12 @@ def checkout():
         kwargs = dict(
             payment_method_types=["card"],
             mode="subscription",
-            line_items=[{"price": os.getenv("STRIPE_PRICE_ID"), "quantity": 1}],
+            line_items=[{"price": price_id, "quantity": 1}],
             success_url=url_for("checkout_succes", _external=True) + "?session_id={CHECKOUT_SESSION_ID}",
             cancel_url=url_for("tarifs", _external=True),
             client_reference_id=club_id,
-            metadata={"club_id": club_id},
+            metadata={"club_id": club_id, "plan_cible": plan_cible},
         )
-        # Réutilise le customer Stripe existant si disponible
         if club.get("stripe_customer_id"):
             kwargs["customer"] = club["stripe_customer_id"]
         else:
@@ -3097,22 +3148,25 @@ def checkout():
 @app.route("/checkout/succes")
 @login_required
 def checkout_succes():
-    session_id = request.args.get("session_id", "")
+    session_id   = request.args.get("session_id", "")
+    plan_attribue = "pro"
     if session_id and _stripe_configured():
         try:
             cs = stripe.checkout.Session.retrieve(session_id)
-            club_id = cs.client_reference_id or cs.metadata.get("club_id")
+            club_id       = cs.client_reference_id or cs.metadata.get("club_id")
+            plan_attribue = cs.metadata.get("plan_cible", "pro")
             if club_id:
                 supabase.table("clubs").update({
-                    "plan": "pro",
+                    "plan":                   plan_attribue,
                     "stripe_customer_id":     cs.customer,
                     "stripe_subscription_id": cs.subscription,
                 }).eq("id", club_id).execute()
-                session["plan"] = "pro"
+                session["plan"] = plan_attribue
         except Exception:
             pass  # Le webhook prendra le relais
 
-    flash("🎉 Bienvenue dans le plan Pro ! Toutes les fonctionnalités sont débloquées.", "success")
+    nom_plan = "Elite 🚀" if plan_attribue == "elite" else "Pro ⚡"
+    flash(f"🎉 Bienvenue dans le plan {nom_plan} ! Toutes les fonctionnalités sont débloquées.", "success")
     return redirect(url_for("dashboard"))
 
 
@@ -3138,10 +3192,11 @@ def webhook():
     obj   = event["data"]["object"]
 
     if etype == "checkout.session.completed":
-        club_id = obj.get("client_reference_id") or obj.get("metadata", {}).get("club_id")
+        club_id      = obj.get("client_reference_id") or obj.get("metadata", {}).get("club_id")
+        plan_cible   = obj.get("metadata", {}).get("plan_cible", "pro")
         if club_id:
             supabase.table("clubs").update({
-                "plan": "pro",
+                "plan":                   plan_cible,
                 "stripe_customer_id":     obj.get("customer"),
                 "stripe_subscription_id": obj.get("subscription"),
             }).eq("id", club_id).execute()
@@ -3155,10 +3210,20 @@ def webhook():
             }).eq("stripe_customer_id", customer_id).execute()
 
     elif etype == "invoice.payment_succeeded":
-        # Réactivation après reprise de paiement
-        customer_id = obj.get("customer")
+        # Renouvellement — on détecte le plan via le price_id de la subscription
+        customer_id     = obj.get("customer")
+        subscription_id = obj.get("subscription")
         if customer_id:
-            supabase.table("clubs").update({"plan": "pro"}).eq("stripe_customer_id", customer_id).execute()
+            plan_renouv = "pro"
+            if subscription_id and _stripe_configured():
+                try:
+                    sub = stripe.Subscription.retrieve(subscription_id)
+                    paid_price = sub["items"]["data"][0]["price"]["id"]
+                    if paid_price == os.getenv("STRIPE_ELITE_PRICE_ID", "__none__"):
+                        plan_renouv = "elite"
+                except Exception:
+                    pass
+            supabase.table("clubs").update({"plan": plan_renouv}).eq("stripe_customer_id", customer_id).execute()
 
     return "", 200
 
@@ -3272,6 +3337,200 @@ def parametres():
 def deconnexion():
     session.clear()
     return redirect(url_for("connexion"))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Analytics — Plan Elite
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/analytics")
+@coach_or_president
+@elite_required
+def analytics():
+    club_id = session.get("club_id")
+    sport   = _get_sport(club_id)
+
+    # Matchs joués (avec score)
+    try:
+        mr = supabase.table("matchs").select("*")\
+                     .eq("club_id", club_id)\
+                     .not_.is_("score_nous", "null")\
+                     .order("date_match").execute()
+        matchs = mr.data or []
+    except Exception:
+        matchs = []
+
+    # Effectif
+    try:
+        er = supabase.table("joueurs").select("id,prenom,nom,poste,forme_note")\
+                     .eq("club_id", club_id).order("nom").execute()
+        effectif = er.data or []
+    except Exception:
+        effectif = []
+
+    # Stats joueurs
+    try:
+        sr = supabase.table("stats_joueurs").select("joueur_id,stats")\
+                     .eq("club_id", club_id).execute()
+        stats_raw = sr.data or []
+    except Exception:
+        stats_raw = []
+
+    # Agrégation stats par joueur
+    stats_by_joueur = {}
+    for row in stats_raw:
+        jid  = str(row.get("joueur_id", ""))
+        sobj = row.get("stats") or {}
+        if jid not in stats_by_joueur:
+            stats_by_joueur[jid] = {}
+        for k, v in sobj.items():
+            try:
+                stats_by_joueur[jid][k] = stats_by_joueur[jid].get(k, 0) + int(v or 0)
+            except (ValueError, TypeError):
+                pass
+
+    # Données graphique résultats
+    chart_matchs = []
+    victoires = defaites = nuls = 0
+    for m in matchs:
+        sn, se = m.get("score_nous"), m.get("score_eux")
+        if sn is None or se is None:
+            continue
+        res = "V" if sn > se else ("N" if sn == se else "D")
+        if res == "V": victoires += 1
+        elif res == "D": defaites += 1
+        else: nuls += 1
+        chart_matchs.append({
+            "date":      m.get("date_match", "")[:10],
+            "label":     f"vs {m.get('adversaire','')}",
+            "score_nous": sn,
+            "score_eux":  se,
+            "result":     res,
+        })
+
+    # Labels stats selon sport
+    stat_fields = MATCH_STATS_FIELDS.get(sport, [])
+    first_field = stat_fields[0][0] if stat_fields else "buts"
+    first_label = stat_fields[0][1] if stat_fields else "Buts"
+
+    # Top 5 par premier champ de stats
+    top_joueurs = []
+    for j in effectif:
+        jid   = str(j.get("id", ""))
+        total = stats_by_joueur.get(jid, {}).get(first_field, 0)
+        if total > 0:
+            top_joueurs.append({"nom": f"{j.get('prenom','')} {j.get('nom','')}", "val": total, "poste": j.get("poste","")})
+    top_joueurs.sort(key=lambda x: x["val"], reverse=True)
+    top_joueurs = top_joueurs[:8]
+
+    return render_template("analytics.html",
+        sport=sport,
+        matchs=matchs,
+        chart_matchs=chart_matchs,
+        effectif=effectif,
+        stats_by_joueur=stats_by_joueur,
+        stat_fields=stat_fields,
+        first_field=first_field,
+        first_label=first_label,
+        top_joueurs=top_joueurs,
+        victoires=victoires,
+        defaites=defaites,
+        nuls=nuls,
+    )
+
+
+# ── Email convocations (Elite) ─────────────────────────────────────────────────
+
+@app.route("/convocations/<match_id>/envoyer-email", methods=["POST"])
+@coach_or_president
+@elite_required
+def envoyer_convocations_email(match_id):
+    club_id = session.get("club_id")
+    nom_club = session.get("nom_club", "Votre club")
+
+    if not _MAIL_AVAILABLE or not app.config.get("MAIL_USERNAME"):
+        flash("⚠️ La configuration email (MAIL_USERNAME / MAIL_PASSWORD) n'est pas renseignée dans le .env.", "error")
+        return redirect(request.referrer or url_for("matchs"))
+
+    # Récupérer le match
+    try:
+        mr = supabase.table("matchs").select("date_match,adversaire,domicile")\
+                     .eq("id", match_id).eq("club_id", club_id).execute()
+        match = mr.data[0] if mr.data else None
+    except Exception:
+        match = None
+
+    if not match:
+        flash("Match introuvable.", "error")
+        return redirect(url_for("matchs"))
+
+    # Récupérer les convocations
+    try:
+        cr = supabase.table("convocations").select("joueur_id,statut")\
+                     .eq("match_id", match_id).eq("club_id", club_id).execute()
+        convocations = cr.data or []
+    except Exception:
+        convocations = []
+
+    if not convocations:
+        flash("Aucune convocation enregistrée pour ce match.", "error")
+        return redirect(url_for("matchs"))
+
+    # Récupérer emails des joueurs convoqués
+    joueur_ids = [str(c["joueur_id"]) for c in convocations]
+    try:
+        jr = supabase.table("joueurs").select("id,prenom,nom,email")\
+                     .eq("club_id", club_id).execute()
+        joueurs_map = {str(j["id"]): j for j in (jr.data or [])}
+    except Exception:
+        joueurs_map = {}
+
+    date_str    = match.get("date_match", "")[:10]
+    adversaire  = match.get("adversaire", "")
+    lieu        = "à domicile" if match.get("domicile") else "à l'extérieur"
+    envoyes     = 0
+    erreurs     = 0
+
+    for conv in convocations:
+        jid  = str(conv.get("joueur_id", ""))
+        j    = joueurs_map.get(jid, {})
+        email_dest = j.get("email", "")
+        if not email_dest:
+            continue
+        statut_label = {"titulaire_pressenti": "titulaire pressenti", "remplacant": "remplaçant", "convoque": "convoqué"}.get(conv.get("statut", ""), "convoqué")
+        try:
+            msg = MailMessage(
+                subject=f"[{nom_club}] Convocation — Match vs {adversaire} le {date_str}",
+                recipients=[email_dest],
+                html=f"""
+                <div style="font-family:sans-serif;max-width:480px;margin:auto;">
+                  <div style="background:#0D0D18;padding:1.5rem;border-radius:8px 8px 0 0;text-align:center;">
+                    <span style="color:#fff;font-size:1.1rem;font-weight:700;">⚽ {nom_club}</span>
+                  </div>
+                  <div style="padding:1.5rem;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
+                    <h2 style="margin:0 0 1rem;font-size:1rem;">Bonjour {j.get('prenom','')},</h2>
+                    <p>Tu es <strong>{statut_label}</strong> pour le match suivant :</p>
+                    <div style="background:#f4f5f7;border-radius:6px;padding:1rem;margin:1rem 0;">
+                      <div>🏟 <strong>vs {adversaire}</strong> — {lieu}</div>
+                      <div>📅 {date_str}</div>
+                    </div>
+                    <p style="color:#6b7280;font-size:.85rem;">Réponds dès que possible si tu as une indisponibilité.</p>
+                    <hr style="border:none;border-top:1px solid #e5e7eb;margin:1rem 0;">
+                    <p style="color:#9ca3af;font-size:.75rem;">Tactix · Application de gestion sportive</p>
+                  </div>
+                </div>""",
+            )
+            mail.send(msg)
+            envoyes += 1
+        except Exception:
+            erreurs += 1
+
+    if envoyes:
+        flash(f"✉️ {envoyes} email{'s' if envoyes > 1 else ''} envoyé{'s' if envoyes > 1 else ''} avec succès.", "success")
+    if erreurs:
+        flash(f"⚠️ {erreurs} email{'s' if erreurs > 1 else ''} n'ont pas pu être envoyé{'s' if erreurs > 1 else ''} (joueurs sans email ?)", "error")
+
+    return redirect(url_for("matchs"))
 
 
 if __name__ == "__main__":

@@ -475,6 +475,17 @@
           <span class="sidebar-icon">📓</span> Journal de bord
         </a>
         {% endif %}
+        {% if user_role != 'joueur' and session.get('plan') == 'elite' %}
+        <a href="/analytics" class="sidebar-link {% if request.path == '/analytics' %}active{% endif %}">
+          <span class="sidebar-icon">📊</span> Analytics
+          <span style="margin-left:auto;font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;background:rgba(0,85,164,.15);color:var(--accent);border:1px solid rgba(0,85,164,.25);border-radius:10px;padding:1px 6px;">Elite</span>
+        </a>
+        {% elif user_role != 'joueur' %}
+        <a href="/tarifs" class="sidebar-link" style="color:#555;">
+          <span class="sidebar-icon" style="opacity:.5;">📊</span> <span style="opacity:.5;">Analytics</span>
+          <span style="margin-left:auto;font-size:.52rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;background:rgba(107,114,128,.1);color:var(--muted);border:1px solid var(--border);border-radius:10px;padding:1px 6px;">🔒</span>
+        </a>
+        {% endif %}
       </div>
 
     </nav>

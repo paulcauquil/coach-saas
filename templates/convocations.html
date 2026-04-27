@@ -235,6 +235,18 @@
       <button type="submit" class="btn-save">💾 Enregistrer les convocations</button>
       <button type="button" class="btn-gen" onclick="genererMessage()">✉️ Générer le message</button>
     </div>
+    {% if session.get('plan') == 'elite' %}
+    <form method="POST" action="/convocations/{{ match.id }}/envoyer-email" style="margin-top:.75rem;">
+      <button type="submit" class="btn-save" style="background:#0055A4;display:flex;align-items:center;gap:.4rem;justify-content:center;width:100%;">
+        📧 Envoyer les convocations par email aux joueurs
+      </button>
+    </form>
+    {% else %}
+    <div style="margin-top:.75rem;padding:.65rem 1rem;background:rgba(0,85,164,.05);border:1px solid rgba(0,85,164,.15);border-radius:6px;font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;">
+      <span style="font-size:1rem;">📧</span>
+      <span>Envoi par email disponible en <a href="/tarifs" style="color:var(--accent);font-weight:600;">plan Elite</a></span>
+    </div>
+    {% endif %}
     {% endif %}
   </form>
 

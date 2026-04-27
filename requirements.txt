@@ -3,3 +3,4 @@ python-dotenv
 supabase
 bcrypt
 stripe
+flask-mail
